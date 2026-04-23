@@ -1,0 +1,123 @@
+<!DOCTYPE HTML>
+<html lang="en">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<title>Costco Price Drop Tracker</title>
+	<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,600,700" />
+	<link rel="stylesheet" href="styles.css" />
+	<link rel="manifest" href="manifest.webmanifest" />
+	<meta name="theme-color" content="#1a5490" />
+</head>
+<body>
+
+	<header class="site-header">
+		<div class="wrap">
+			<h1>Costco Price Drop Tracker</h1>
+			<p class="tagline">Scan a receipt. We&rsquo;ll watch for price drops for 30 days so you can get an in-store price adjustment.</p>
+		</div>
+	</header>
+
+	<main class="wrap">
+
+		<section id="notice" class="card notice hidden">
+			<p id="notice-msg"></p>
+			<button type="button" class="text-btn" data-dismiss-notice>Dismiss</button>
+		</section>
+
+		<section class="card" id="scan-section">
+			<h2>1. Scan a receipt</h2>
+			<p class="hint">Upload a photo of a Costco receipt. OCR runs entirely in your browser &mdash; the image never leaves your device.</p>
+
+			<div class="scan-controls">
+				<label class="file-input">
+					<input type="file" id="receipt-file" accept="image/*" capture="environment" />
+					<span>Choose receipt image</span>
+				</label>
+				<button type="button" id="scan-btn" class="primary-btn" disabled>Scan receipt</button>
+				<button type="button" id="manual-btn" class="text-btn">Or enter manually</button>
+			</div>
+
+			<div id="scan-progress" class="progress hidden">
+				<div class="bar"><div id="scan-bar" style="width:0%"></div></div>
+				<p id="scan-status">Preparing&hellip;</p>
+			</div>
+
+			<details id="ocr-raw" class="hidden">
+				<summary>Raw OCR text (tap to view/edit)</summary>
+				<textarea id="ocr-raw-text" rows="10" spellcheck="false"></textarea>
+				<button type="button" id="reparse-btn" class="text-btn">Re-parse edited text</button>
+			</details>
+		</section>
+
+		<section class="card hidden" id="review-section">
+			<h2>2. Review parsed receipt</h2>
+			<div class="field-row">
+				<label>Purchase date
+					<input type="date" id="purchase-date" />
+				</label>
+				<label>Warehouse / store #
+					<input type="text" id="warehouse" placeholder="e.g. 123" />
+				</label>
+			</div>
+			<table class="items-table" id="items-table">
+				<thead>
+					<tr>
+						<th>Item&nbsp;#</th>
+						<th>Description</th>
+						<th>Paid</th>
+						<th>Discounted<br/>at purchase?</th>
+						<th>Track</th>
+						<th></th>
+					</tr>
+				</thead>
+				<tbody id="items-body"></tbody>
+			</table>
+			<button type="button" id="add-item-btn" class="text-btn">+ Add item</button>
+			<div class="actions">
+				<button type="button" id="save-receipt-btn" class="primary-btn">Save receipt &amp; start tracking</button>
+				<button type="button" id="cancel-review-btn" class="text-btn">Cancel</button>
+			</div>
+		</section>
+
+		<section class="card" id="settings-section">
+			<h2>Settings</h2>
+			<div class="field-row">
+				<label class="full">Optional price-check proxy URL
+					<input type="url" id="proxy-url" placeholder="https://your-proxy.example.com/?url=" />
+					<span class="hint">Browsers block direct fetches to costco.com. If you have a CORS proxy that accepts a <code>url</code> query param, paste its prefix here and the app can pull prices automatically. Leave blank to use the manual &ldquo;open search&rdquo; flow.</span>
+				</label>
+			</div>
+			<div class="field-row">
+				<label class="checkbox"><input type="checkbox" id="notify-toggle" /> Desktop notifications when a price drops</label>
+				<button type="button" id="test-notify" class="text-btn">Send test notification</button>
+			</div>
+			<p class="hint" id="bg-sync-status"></p>
+		</section>
+
+		<section class="card" id="receipts-section">
+			<h2>Tracked receipts</h2>
+			<div id="receipts-list"></div>
+		</section>
+
+		<section class="card hidden" id="adjustment-section">
+			<h2>Price Adjustment Slip</h2>
+			<p class="hint">Show this at the Costco membership/returns desk within 30 days of purchase.</p>
+			<div id="adjustment-content"></div>
+			<div class="actions">
+				<button type="button" id="print-slip" class="primary-btn">Print slip</button>
+				<button type="button" id="close-slip" class="text-btn">Close</button>
+			</div>
+		</section>
+
+	</main>
+
+	<footer class="site-footer">
+		<p>Runs entirely in your browser. Receipts stored in localStorage on this device only.</p>
+		<p><a href="../index.html">&larr; Back to main site</a></p>
+	</footer>
+
+	<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.0/dist/tesseract.min.js"></script>
+	<script src="app.js"></script>
+</body>
+</html>

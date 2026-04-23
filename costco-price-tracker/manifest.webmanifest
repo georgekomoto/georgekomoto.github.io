@@ -1,0 +1,10 @@
+{
+	"name": "Costco Price Drop Tracker",
+	"short_name": "Costco Tracker",
+	"start_url": "./",
+	"scope": "./",
+	"display": "standalone",
+	"background_color": "#f4f6f8",
+	"theme_color": "#1a5490",
+	"description": "Scan a Costco receipt and get alerted if any items go on sale within the 30-day price-adjustment window."
+}
