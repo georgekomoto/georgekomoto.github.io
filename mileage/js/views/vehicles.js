@@ -73,11 +73,11 @@ export async function renderForm(root, id) {
           <label>Model<input name="model" value="${escapeHtml(v.model)}"></label>
         </div>
         <div class="row-2">
-          <label>Year<input name="year" type="number" value="${escapeHtml(v.year)}"></label>
+          <label>Year<input name="year" type="number" inputmode="numeric" value="${escapeHtml(v.year)}"></label>
           <label>Plate<input name="plate" value="${escapeHtml(v.plate)}"></label>
         </div>
         <div class="row-2">
-          <label>Current odometer<input name="currentOdometer" type="number" step="0.1" value="${escapeHtml(v.currentOdometer)}"></label>
+          <label>Current odometer<input name="currentOdometer" type="number" inputmode="decimal" step="0.1" value="${escapeHtml(v.currentOdometer)}"></label>
           <label>Units
             <select name="units">
               <option value="mi" ${v.units === 'mi' ? 'selected' : ''}>Miles</option>

@@ -97,7 +97,7 @@ export async function renderForm(root, id, params = {}) {
           <label>Date<input name="date" type="date" value="${escapeHtml(formatDateInput(ex.date))}" required></label>
         </div>
         <div class="row-2">
-          <label>Amount<input name="amount" type="number" step="0.01" value="${escapeHtml(ex.amount)}" required></label>
+          <label>Amount<input name="amount" type="number" inputmode="decimal" step="0.01" value="${escapeHtml(ex.amount)}" required></label>
           <label>Currency<input name="currency" value="${escapeHtml(ex.currency || currency)}" maxlength="3"></label>
         </div>
         <label>Vehicle
