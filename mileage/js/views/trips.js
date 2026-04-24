@@ -75,10 +75,10 @@ export async function renderForm(root, id) {
     notes: '',
   };
 
-  // Autofill startOdometer from vehicle's current odometer if new trip
+  // Autofill startOdometer from the most recent trip's end odometer for this
+  // vehicle. Falls back to vehicle.currentOdometer if no prior trip has one.
   if (!existing) {
-    const defaultVehicle = activeVehicles.find((v) => v.id === t.vehicleId) || activeVehicles[0];
-    if (defaultVehicle) t.startOdometer = defaultVehicle.currentOdometer ?? '';
+    t.startOdometer = await suggestedStartOdometer(t.vehicleId, activeVehicles);
   }
 
   root.innerHTML = `
@@ -99,8 +99,8 @@ export async function renderForm(root, id) {
           <label>Purpose<input name="purpose" value="${escapeHtml(t.purpose)}" placeholder="e.g. Site visit"></label>
         </div>
         <div class="row-2">
-          <label>Start odometer<input name="startOdometer" type="number" step="0.1" value="${escapeHtml(t.startOdometer)}"></label>
-          <label>End odometer<input name="endOdometer" type="number" step="0.1" value="${escapeHtml(t.endOdometer)}"></label>
+          <label>Start odometer<input name="startOdometer" type="number" inputmode="decimal" step="0.1" value="${escapeHtml(t.startOdometer)}"></label>
+          <label>End odometer<input name="endOdometer" type="number" inputmode="decimal" step="0.1" value="${escapeHtml(t.endOdometer)}"></label>
         </div>
         <div class="row-2">
           <label>Client
@@ -130,12 +130,12 @@ export async function renderForm(root, id) {
     </section>
   `;
 
-  // When vehicle changes on a new trip, update startOdometer
+  // When vehicle changes on a new trip, refetch the prior trip's end odometer
   const form = root.querySelector('#trip-form');
   if (!existing) {
-    form.vehicleId.addEventListener('change', () => {
-      const v = activeVehicles.find((x) => x.id === form.vehicleId.value);
-      if (v) form.startOdometer.value = v.currentOdometer ?? '';
+    form.vehicleId.addEventListener('change', async () => {
+      const value = await suggestedStartOdometer(form.vehicleId.value, activeVehicles);
+      form.startOdometer.value = value ?? '';
     });
   }
 
@@ -171,6 +171,20 @@ export async function renderForm(root, id) {
       location.hash = '#/trips';
     });
   }
+}
+
+async function suggestedStartOdometer(vehicleId, activeVehicles) {
+  const trips = await byIndex('trips', 'vehicleId', vehicleId);
+  const completed = trips.filter((t) => t.endOdometer != null && t.endOdometer !== '');
+  if (completed.length > 0) {
+    completed.sort((a, b) => {
+      const d = (b.date || '').localeCompare(a.date || '');
+      return d !== 0 ? d : (b.createdAt || '').localeCompare(a.createdAt || '');
+    });
+    return completed[0].endOdometer;
+  }
+  const v = activeVehicles.find((x) => x.id === vehicleId);
+  return v && v.currentOdometer != null ? v.currentOdometer : '';
 }
 
 export async function renderDetail(root, id) {
