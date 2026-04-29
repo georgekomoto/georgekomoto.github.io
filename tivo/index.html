@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TiVo Drive Viewer</title>
+  <link rel="stylesheet" href="./css/app.css">
+</head>
+<body>
+  <header class="app-header">
+    <span class="app-brand">TiVo Drive Viewer</span>
+    <nav class="app-nav">
+      <a href="#/" data-nav="import">Import</a>
+      <a href="#/partitions" data-nav="partitions">Partitions</a>
+      <a href="#/recordings" data-nav="recordings">Recordings</a>
+    </nav>
+  </header>
+
+  <main id="app" class="app-main"></main>
+
+  <footer class="app-footer">
+    <span>Runs entirely in your browser &mdash; no uploads, no server</span>
+  </footer>
+
+  <script type="module" src="./js/app.js"></script>
+</body>
+</html>
