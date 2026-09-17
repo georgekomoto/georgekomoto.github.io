@@ -88,7 +88,9 @@ export const app = {
         </div>`;
       document.body.classList.add('alert-open');
       const prevFocus = document.activeElement;
-      requestAnimationFrame(() => { alertRoot.classList.add('is-open'); alertRoot.querySelector('[data-act="cancel"]').focus(); });
+      const dialog = alertRoot.querySelector('.alert');
+      dialog.tabIndex = -1;
+      requestAnimationFrame(() => { alertRoot.classList.add('is-open'); dialog.focus({ preventScroll: true }); });
       const finish = (ok) => {
         alertRoot.classList.remove('is-open');
         document.body.classList.remove('alert-open');
@@ -266,6 +268,17 @@ async function route() {
 function updateTopBarTitle() {
   const h1 = tabRoot.querySelector('.large-title');
   topBarTitle.textContent = h1 ? h1.textContent.trim() : '';
+  // Sub-pages declare a back destination on their .page (data-back-hash, data-back-label);
+  // the shell keeps that button fixed in the top bar like a UINavigationBar.
+  const page = tabRoot.querySelector('.page');
+  const back = topBar.querySelector('.top-bar-back');
+  if (page && page.dataset.backHash) {
+    back.hidden = false;
+    back.setAttribute('href', page.dataset.backHash);
+    back.innerHTML = `${icon('chevronLeft', { size: 26 })}<span>${escapeHtml(page.dataset.backLabel || 'Back')}</span>`;
+  } else {
+    back.hidden = true;
+  }
 }
 
 function onScroll() {

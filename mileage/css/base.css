@@ -111,6 +111,22 @@ body.sheet-open .tab-root {
   transition: background var(--dur-fast) linear, box-shadow var(--dur-fast) linear;
 }
 
+.top-bar-back {
+  position: absolute;
+  left: 8px;
+  bottom: 0;
+  height: var(--top-bar-h);
+  display: inline-flex;
+  align-items: center;
+  padding: 0 10px 0 2px;
+  color: var(--accent);
+  font-size: var(--fs-body);
+  pointer-events: auto;
+  border-radius: 8px;
+}
+.top-bar-back svg { width: 26px; height: 26px; margin-right: -2px; }
+.top-bar-back:active { opacity: 0.5; }
+
 .top-bar-title {
   font-size: var(--fs-headline);
   font-weight: 600;
@@ -251,7 +267,7 @@ body.sheet-open .tab-root {
   text-align: left;
 }
 
-.row + .row::before,
+.list > * + *::before,
 .row-sep + .row::before {
   content: "";
   position: absolute;
@@ -260,7 +276,9 @@ body.sheet-open .tab-root {
   background: var(--separator);
 }
 
-.row.has-icon + .row::before { left: 60px; }
+.list > * { position: relative; }
+.list > .has-icon + *::before { left: 60px; }
+.section-footer + .list, .section-footer + .card { margin-top: 16px; }
 
 a.row:active, button.row:active { background: var(--fill); }
 
@@ -277,7 +295,7 @@ a.row:active, button.row:active { background: var(--fill); }
 .row-icon.tint { background: var(--accent-soft); color: var(--accent); }
 
 .row-main { flex: 1 1 auto; min-width: 0; }
-.row-title { font-size: var(--fs-body); line-height: var(--lh-body); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row-title { font-size: var(--fs-body); line-height: var(--lh-body); font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .row-sub { font-size: var(--fs-subhead); line-height: var(--lh-subhead); color: var(--label-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .row-trailing { flex: 0 0 auto; text-align: right; }
 .row-value { font-size: var(--fs-body); line-height: var(--lh-body); font-weight: 600; font-variant-numeric: tabular-nums; }
@@ -394,7 +412,7 @@ a.row:active, button.row:active { background: var(--fill); }
   position: relative;
 }
 .seg { flex: 1 1 0; position: relative; min-width: 0; }
-.seg input { position: absolute; inset: 0; opacity: 0; margin: 0; width: 100%; height: 100%; cursor: pointer; }
+.seg input { position: absolute; inset: -6px 0; opacity: 0; margin: 0; width: 100%; height: calc(100% + 12px); cursor: pointer; }
 .seg span {
   display: block;
   text-align: center;
@@ -423,7 +441,7 @@ a.row:active, button.row:active { background: var(--fill); }
 
 /* ---------- Switch ---------- */
 .switch { position: relative; display: inline-block; width: 51px; height: 31px; flex: 0 0 auto; }
-.switch input { position: absolute; inset: 0; opacity: 0; margin: 0; width: 100%; height: 100%; cursor: pointer; }
+.switch input { position: absolute; inset: -7px -6px; opacity: 0; margin: 0; width: calc(100% + 12px); height: calc(100% + 14px); cursor: pointer; }
 .switch-track {
   position: absolute; inset: 0;
   background: var(--fill-strong);
@@ -450,7 +468,7 @@ a.row:active, button.row:active { background: var(--fill); }
   align-items: center;
   gap: 12px;
   min-height: 52px;
-  padding: 8px 16px;
+  padding: 4px 16px;
   position: relative;
 }
 .field + .field::before { content: ""; position: absolute; left: 16px; right: 0; top: 0; height: 0.5px; background: var(--separator); }
@@ -464,7 +482,7 @@ a.row:active, button.row:active { background: var(--fill); }
   text-align: right;
   font-size: var(--fs-body);
   color: var(--label);
-  min-height: 36px;
+  min-height: 44px;
 }
 .field-input::placeholder { color: var(--label-3); }
 .field-input.left { text-align: left; }

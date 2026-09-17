@@ -19,7 +19,9 @@ function cssEscape(s) { return (globalThis.CSS && CSS.escape) ? CSS.escape(s) : 
 function plural(n, one) { return `${fmtNum(n, { max: 0 })} ${n === 1 ? one : `${one}s`}`; }
 function unitWords(v, units) { const one = Math.abs(v - 1) < 1e-9; return units === 'km' ? (one ? 'kilometer' : 'kilometers') : (one ? 'mile' : 'miles'); }
 function distanceWords(v, units) { return `${fmtNum(v, { max: v >= 1000 ? 0 : 1 })} ${unitWords(v, units)}`; }
-function shortNum(v) { return fmtNum(v, { max: v >= 1000 ? 0 : (v >= 100 ? 0 : 1) }); }
+/** A month value at the precision its total deserves: whole numbers from 100 up, one decimal below. */
+function shortNum(v, ref = v) { return fmtNum(v, { max: ref >= 100 ? 0 : 1 }); }
+function whatByMonth(units) { return units === 'km' ? 'Kilometers by month' : 'Miles by month'; }
 const px = (n) => Math.round(n * 10) / 10;
 
 /** Rate periods that overlap `year`, each clipped to the year: [{from, business, medical, charity, start, end}] */
@@ -100,8 +102,8 @@ function chartSvg(L, months, { year, units, isCurrentYear, nowMonth, hasData }) 
   const total = months.reduce((s, m) => s + m.total, 0);
   const ded = months.reduce((s, m) => s + m.ded, 0);
   const label = hasData
-    ? `Miles by month in ${year}: ${distanceWords(total, units)} total, ${distanceWords(ded, units)} deductible. Busiest month ${monthName(L.maxIdx + 1)} with ${distanceWords(months[L.maxIdx].total, units)}.`
-    : `Miles by month in ${year}: no trips logged.`;
+    ? `${whatByMonth(units)} in ${year}: ${distanceWords(total, units)} total, ${distanceWords(ded, units)} deductible. Busiest month ${monthName(L.maxIdx + 1)} with ${distanceWords(months[L.maxIdx].total, units)}.`
+    : `${whatByMonth(units)} in ${year}: no trips logged.`;
   let out = `<svg class="summary-svg" width="${L.width}" height="${L.height}" viewBox="0 0 ${L.width} ${L.height}" role="img" aria-label="${escapeHtml(label)}">`;
   // Gridlines with right-aligned tick labels sitting just above each line
   L.ticks.forEach((t, k) => {
@@ -144,7 +146,7 @@ function tableHtml(months, year, units) {
     ? `<tr><th scope="row">${monthName(i + 1)}</th><td>${fmtNum(m.ded, { max: 1 })}</td><td>${fmtNum(m.per, { max: 1 })}</td><td>${fmtNum(m.total, { max: 1 })}</td><td>${m.count}</td></tr>`
     : '')).join('');
   if (!rows) return '';
-  return `<table class="sr-only"><caption>Miles by month, ${year}</caption><thead><tr><th scope="col">Month</th><th scope="col">Deductible (${units})</th><th scope="col">Personal (${units})</th><th scope="col">Total (${units})</th><th scope="col">Trips</th></tr></thead><tbody>${rows}</tbody></table>`;
+  return `<table class="sr-only"><caption>${whatByMonth(units)}, ${year}</caption><thead><tr><th scope="col">Month</th><th scope="col">Deductible (${units})</th><th scope="col">Personal (${units})</th><th scope="col">Total (${units})</th><th scope="col">Trips</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
 /**
@@ -175,8 +177,8 @@ function mountChart(host, months, opts) {
     const name = monthName(i + 1);
     if (!(m.total > 0)) return `${name}: no trips`;
     const parts = [];
-    if (m.ded > 0) parts.push(`${shortNum(m.ded)} deductible`);
-    if (m.per > 0) parts.push(`${shortNum(m.per)} personal`);
+    if (m.ded > 0) parts.push(`${shortNum(m.ded, m.total)} deductible`);
+    if (m.per > 0) parts.push(`${shortNum(m.per, m.total)} personal`);
     return `${name}: ${distanceWords(m.total, units)}, ${parts.join(', ')}`;
   };
 
@@ -217,8 +219,8 @@ function mountChart(host, months, opts) {
     callout.querySelector('.summary-callout-title').textContent = `${monthName(i + 1)} ${opts.year}`;
     callout.querySelector('.summary-callout-value').textContent = m.total > 0 ? `${shortNum(m.total)} ${units}` : 'No trips';
     const parts = [];
-    if (m.ded > 0) parts.push(`${shortNum(m.ded)} deductible`);
-    if (m.per > 0) parts.push(`${shortNum(m.per)} personal`);
+    if (m.ded > 0) parts.push(`${shortNum(m.ded, m.total)} deductible`);
+    if (m.per > 0) parts.push(`${shortNum(m.per, m.total)} personal`);
     const sub = callout.querySelector('.summary-callout-sub');
     sub.textContent = parts.join(' \u00b7 ');
     sub.hidden = !parts.length;
@@ -372,8 +374,9 @@ export function mount(root, ctx) {
 
   function heroHtml(ys, sum, yearTrips, units) {
     const rows = PURPOSE_ORDER.filter((p) => sum.byPurpose[p] && sum.byPurpose[p].count > 0);
+    const dec = store.toDisplay(sum.distanceMi) >= 10 ? 0 : 1; // headline numbers: whole units once there is anything to speak of
     const sub = yearTrips.length
-      ? `${fmtDistance(sum.deductibleMi, units, { unit: false })} deductible ${units} of ${fmtDistance(sum.distanceMi, units, { unit: false })} total`
+      ? `${fmtDistance(sum.deductibleMi, units, { unit: false, max: dec })} deductible ${units} of ${fmtDistance(sum.distanceMi, units, { unit: false, max: dec })} total`
       : 'No trips logged this year yet';
     return `
       <section class="card summary-hero-card" aria-labelledby="summary-year">
@@ -389,27 +392,25 @@ export function mount(root, ctx) {
 
   function chartCardHtml(months, year, units, isCurrentYear, nowMonth) {
     const hasData = months.some((m) => m.count > 0);
+    // The caption answers "is my log complete?": how many of the year's months (so far) have trips.
     let caption;
     if (!hasData) caption = `No trips in ${year}`;
     else {
       const elapsed = isCurrentYear ? nowMonth + 1 : 12;
-      const logged = months.slice(0, elapsed).filter((m) => m.count > 0).length;
-      const late = months.slice(elapsed).filter((m) => m.count > 0).length; // trips dated ahead of today
-      if (logged + late >= elapsed) caption = isCurrentYear ? 'Trips logged every month so far' : 'Trips logged every month';
-      else caption = `Trips logged in ${logged + late} of ${elapsed} months${isCurrentYear ? ' so far' : ''}`;
+      const logged = months.filter((m) => m.count > 0).length; // includes months dated ahead of today
+      if (logged >= elapsed) caption = isCurrentYear ? 'Trips logged every month so far' : 'Trips logged every month';
+      else caption = `Trips in ${logged} of ${elapsed} months${isCurrentYear ? ' so far' : ''}`;
     }
     return `
       <section class="card summary-chart-card" aria-labelledby="summary-chart-title">
         <div class="summary-chart-head">
-          <div class="summary-chart-heading">
-            <h2 class="summary-card-title" id="summary-chart-title">Miles by month</h2>
-            <p class="summary-chart-caption">${escapeHtml(caption)}</p>
-          </div>
+          <h2 class="summary-card-title" id="summary-chart-title">${whatByMonth(units)}</h2>
           <ul class="summary-legend" aria-label="Legend">
             <li><span class="summary-swatch ded" aria-hidden="true"></span>Deductible</li>
             <li><span class="summary-swatch per" aria-hidden="true"></span>Personal</li>
           </ul>
         </div>
+        <p class="summary-chart-caption">${escapeHtml(caption)}</p>
         <div class="summary-chart" data-chart></div>
         ${tableHtml(months, year, units)}
       </section>`;

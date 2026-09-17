@@ -1,7 +1,7 @@
 // Mileage — data store. Single JSON document in localStorage, canonical distances in miles.
 // Views read through the API below and re-render on `subscribe`.
 
-import { uid, todayISO, yearOf, monthKey, toDisplayDistance, fromDisplayDistance, isValidISODate, csvEscape, fmtDistance } from './format.js';
+import { uid, todayISO, yearOf, monthKey, toDisplayDistance, fromDisplayDistance, isValidISODate, csvEscape, fmtDistance, KM_PER_MI } from './format.js';
 
 export const STORAGE_KEY = 'mileage.v2';
 export const SCHEMA_VERSION = 2;
@@ -140,29 +140,37 @@ export const store = {
   toDisplay(mi) { return toDisplayDistance(Number(mi) || 0, this.units()); },
   fromDisplay(v) { return fromDisplayDistance(Number(v) || 0, this.units()); },
 
-  // ---- rates (cents per display unit), effective-dated periods sorted ascending by `from`
-  ratePeriods() { return load().settings.rates.slice(); },
+  // ---- rates: stored in cents per MILE (IRS), exposed in cents per display unit.
+  // Effective-dated periods sorted ascending by `from`.
+  _rateToDisplay(p) {
+    const f = this.units() === 'km' ? 1 / KM_PER_MI : 1;
+    return { ...p, business: round(p.business * f, 2), medical: round(p.medical * f, 2), charity: round(p.charity * f, 2) };
+  },
+  ratePeriods() { return load().settings.rates.map((p) => this._rateToDisplay(p)); },
   /** The rate period in effect on a date ('YYYY-MM-DD'); falls back to the earliest period. */
   ratePeriodFor(date) {
     const d = String(date || todayISO()).slice(0, 10);
     const periods = load().settings.rates;
     let match = null;
     for (const p of periods) { if (p.from <= d) match = p; else break; }
-    return match || periods[0] || { from: d, business: 0, medical: 0, charity: 0 };
+    return this._rateToDisplay(match || periods[0] || { from: d, business: 0, medical: 0, charity: 0 });
   },
   rateFor(date, purpose) {
     if (purpose === 'personal') return 0;
     return Number(this.ratePeriodFor(date)[purpose]) || 0;
   },
-  /** Add or update the period starting on `from` */
+  /** Add or update the period starting on `from`. Values are cents per display unit. */
   setRatePeriod(from, patch) {
     const s = load();
     const f = String(from).slice(0, 10);
     if (!isValidISODate(f)) throw new Error('Pick a valid start date.');
+    const toMile = this.units() === 'km' ? KM_PER_MI : 1;
     const existing = s.settings.rates.find((p) => p.from === f);
-    const base = existing || { ...this.ratePeriodFor(f), from: f };
-    const next = { ...base, ...patch, from: f };
-    for (const k of ['business', 'medical', 'charity']) { next[k] = num(next[k]) ?? 0; if (next[k] < 0 || next[k] > 500) throw new Error('Rates must be between 0 and 500 cents.'); }
+    const base = existing || { ...(s.settings.rates.filter((p) => p.from <= f).pop() || s.settings.rates[0] || { business: 0, medical: 0, charity: 0 }), from: f };
+    const next = { ...base, from: f };
+    for (const k of ['business', 'medical', 'charity']) {
+      if (k in patch) { const v = num(patch[k]); if (v == null || v < 0 || v > 500) throw new Error('Rates must be between 0 and 500 cents.'); next[k] = round(v * toMile, 3); }
+    }
     s.settings.rates = sortPeriods(dedupePeriods([...s.settings.rates.filter((p) => p.from !== f), next]));
     commit({ type: 'settings' });
     return next;
@@ -398,7 +406,7 @@ export const store = {
   // ---- export / import
   csv(trips) {
     const units = this.units();
-    const head = ['Date', 'From', 'To', 'Purpose', `Distance (${units})`, 'Rate (cents)', 'Value (USD)', 'Vehicle', 'Round trip', 'Odometer start', 'Odometer end', 'Notes'];
+    const head = ['Date', 'From', 'To', 'Purpose', `Distance (${units})`, `Rate (cents per ${units === 'km' ? 'km' : 'mile'})`, 'Value (USD)', 'Vehicle', 'Round trip', 'Odometer start', 'Odometer end', 'Notes'];
     const rows = trips.slice().sort(byDateAsc).map((t) => [
       t.date, t.from, t.to, purposeLabel(t.purpose),
       fmtDistance(t.distanceMi, units, { unit: false, max: 1 }).replace(/,/g, ''),
