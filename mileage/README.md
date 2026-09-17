@@ -43,6 +43,20 @@ Rate defaults (cents per mile) follow IRS Notice 2025-5 (2025), Notice 2026-10 (
 
 The first launch imports trips and vehicles from the previous IndexedDB-based version of this app, if present.
 
+## Design and verification
+
+The app is built against a token system (`css/tokens.css`) whose light and dark palettes are checked
+against both WCAG 2 contrast ratios and APCA lightness contrast: body text at or above 7:1, secondary
+text and every coloured label at or above 4.5:1 and APCA Lc 60. The medical purpose colour is blue
+rather than magenta so it stays distinguishable from business green under deuteranopia.
+
+Screens were reviewed as rendered iPhone screenshots rather than as code, using a Playwright harness
+that renders each route at 393×852 in light and dark with a simulated status bar and home indicator.
+Automated checks cover axe-core (WCAG 2.0/2.1/2.2 A and AA, zero violations on every route in both
+schemes), effective touch-target sizes, and an end-to-end flow test: log a trip from a saved route,
+type a distance by hand, toggle round trip, derive a distance from odometer readings, delete with
+undo, export CSV, and switch units without changing any dollar total.
+
 ## Local development
 
 Any static server works, for example `python3 -m http.server 8123` from the repository root, then open `http://127.0.0.1:8123/mileage/`. On localhost `window.__mileage` exposes `store`, `app`, `seed('demo'|'empty')` and `go(hash)` for testing.
