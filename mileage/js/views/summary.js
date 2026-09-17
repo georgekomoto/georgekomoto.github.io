@@ -18,7 +18,7 @@ function thisYear() { return new Date().getFullYear(); }
 function cssEscape(s) { return (globalThis.CSS && CSS.escape) ? CSS.escape(s) : String(s).replace(/["\\]/g, '\\$&'); }
 function plural(n, one) { return `${fmtNum(n, { max: 0 })} ${n === 1 ? one : `${one}s`}`; }
 function unitWords(v, units) { const one = Math.abs(v - 1) < 1e-9; return units === 'km' ? (one ? 'kilometer' : 'kilometers') : (one ? 'mile' : 'miles'); }
-function distanceWords(v, units) { return `${fmtNum(v, { max: v >= 1000 ? 0 : 1 })} ${unitWords(v, units)}`; }
+function distanceWords(v, units) { return `${fmtNum(v, { max: v >= 100 ? 0 : 1 })} ${unitWords(v, units)}`; }
 /** A month value at the precision its total deserves: whole numbers from 100 up, one decimal below. */
 function shortNum(v, ref = v) { return fmtNum(v, { max: ref >= 100 ? 0 : 1 }); }
 function whatByMonth(units) { return units === 'km' ? 'Kilometers by month' : 'Miles by month'; }
@@ -146,7 +146,8 @@ function tableHtml(months, year, units) {
     ? `<tr><th scope="row">${monthName(i + 1)}</th><td>${fmtNum(m.ded, { max: 1 })}</td><td>${fmtNum(m.per, { max: 1 })}</td><td>${fmtNum(m.total, { max: 1 })}</td><td>${m.count}</td></tr>`
     : '')).join('');
   if (!rows) return '';
-  return `<table class="sr-only"><caption>${whatByMonth(units)}, ${year}</caption><thead><tr><th scope="col">Month</th><th scope="col">Deductible (${units})</th><th scope="col">Personal (${units})</th><th scope="col">Total (${units})</th><th scope="col">Trips</th></tr></thead><tbody>${rows}</tbody></table>`;
+  // A table ignores .sr-only's 1px width, so the wrapper does the clipping (otherwise it widens the page).
+  return `<div class="sr-only"><table><caption>${whatByMonth(units)}, ${year}</caption><thead><tr><th scope="col">Month</th><th scope="col">Deductible (${units})</th><th scope="col">Personal (${units})</th><th scope="col">Total (${units})</th><th scope="col">Trips</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 
 /**
