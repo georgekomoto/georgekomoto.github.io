@@ -81,6 +81,17 @@ export function seed(store, name = 'demo') {
     [126, 'office', civic, true, ''],
     [133, 'office', civic, true, ''],
     [140, 'office', civic, true, ''],
+    // prior year, so the Summary year stepper has somewhere to go
+    [300, 'office', civic, true, ''],
+    [301, 'client', civic, true, 'Year-end review'],
+    [307, 'office', civic, true, ''],
+    [314, 'sfo', civic, true, ''],
+    [321, 'office', civic, true, ''],
+    [328, 'stanford', civic, true, ''],
+    [335, 'office', civic, true, ''],
+    [342, { from: 'Home', to: 'Lake Tahoe', distanceMi: 214, purpose: 'personal' }, civic, true, 'Thanksgiving'],
+    [349, 'office', civic, true, ''],
+    [356, 'foodbank', civic, true, ''],
   ];
 
   for (const [ago, r, vehicle, roundTrip, notes] of plan) {

@@ -98,13 +98,13 @@
   list-style: none;
   margin: 10px 0 0;
   padding: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 16px;
-  font-size: var(--fs-footnote);
-  line-height: var(--lh-footnote);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 12px;
+  font-size: var(--fs-subhead);
+  line-height: var(--lh-subhead);
 }
-.trips-page .purpose-legend li { display: inline-flex; align-items: center; white-space: nowrap; }
+.trips-page .purpose-legend li { display: flex; align-items: center; white-space: nowrap; min-width: 0; }
 .trips-page .purpose-legend .dot { margin-right: 6px; vertical-align: 0; }
 .trips-page .legend-mi { margin-left: 4px; color: var(--label-2); font-variant-numeric: tabular-nums; }
 
@@ -119,9 +119,9 @@
 }
 
 /* ---------- Quick log chips ---------- */
-.trips-page .chip-row { scroll-padding-inline: var(--gutter); }
+.trips-page .chip-row { scroll-padding-inline: var(--gutter); padding-bottom: 0; }
 .trips-page .quick-chip { min-height: 44px; max-width: 264px; }
-.trips-page .quick-chip svg { flex: 0 0 auto; }
+.trips-page .quick-chip svg { flex: 0 0 auto; color: var(--accent); }
 .trips-page .quick-chip .chip-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .trips-page .quick-chip .chip-meta { flex: 0 0 auto; margin-left: 2px; font-variant-numeric: tabular-nums; }
 
@@ -150,6 +150,16 @@
 
 /* ---------- Trip rows ---------- */
 .trips-page .trip-row { min-height: 60px; padding: 10px 16px; align-items: center; }
+/* Never truncate the destination: wrap to two lines and let the row grow. */
+.trips-page .trip-row .row-title {
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  font-weight: 400;
+}
 .trips-page .trip-row .row-title .arrow { color: var(--label-2); font-weight: 400; }
 .trips-page .trip-row .row-sub { font-size: var(--fs-footnote); line-height: var(--lh-footnote); }
 .trips-page .trip-row .row-trailing { display: flex; flex-direction: column; align-items: flex-end; }
@@ -177,14 +187,16 @@
   padding: 24px 24px 40px;
 }
 .trips-page .empty-icon {
-  width: 72px;
-  height: 72px;
-  margin-bottom: 18px;
-  border-radius: 50%;
-  background: var(--accent-soft);
-  color: var(--accent);
   display: flex;
   align-items: center;
   justify-content: center;
+  color: var(--label-3);
+  margin-bottom: 12px;
 }
 .trips-page .empty-icon svg { margin: 0; }
+
+/* Zero month: the deduction is a fact, not an achievement. */
+.trips-page .month-value.is-zero { color: var(--label-2); }
+
+/* Quick log shares the day-heading style so one header system runs down the screen. */
+.trips-page .quick-log-heading { margin-bottom: 0; }

@@ -44,7 +44,19 @@ input[type="date"], input[type="text"], input[type="search"], textarea, select {
   overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
 }
 
+table.sr-only, .sr-only table { display: block; width: 1px; }
+
 [hidden] { display: none !important; }
+
+/* In-card heading (uppercase footnote, like .section-title without its outer spacing) */
+.card-title {
+  font-size: var(--fs-footnote);
+  line-height: var(--lh-footnote);
+  font-weight: 600;
+  color: var(--label-2);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
 
 .num, .tabular { font-variant-numeric: tabular-nums; }
 
@@ -281,6 +293,7 @@ body.sheet-open .tab-root {
 .section-footer + .list, .section-footer + .card { margin-top: 16px; }
 
 a.row:active, button.row:active { background: var(--fill); }
+button.row[disabled], a.row[aria-disabled="true"] { opacity: 0.45; pointer-events: none; }
 
 .row-icon {
   width: 32px; height: 32px;
@@ -336,7 +349,9 @@ a.row:active, button.row:active { background: var(--fill); }
 }
 .btn svg { width: 20px; height: 20px; }
 .btn:active { transform: scale(0.98); }
-.btn[disabled], .btn[aria-disabled="true"] { opacity: 0.45; pointer-events: none; }
+.btn[disabled], .btn[aria-disabled="true"] { pointer-events: none; }
+.btn-primary[disabled], .btn-primary[aria-disabled="true"] { background: var(--fill); color: var(--label-3); }
+.btn-secondary[disabled], .btn-neutral[disabled], .btn-destructive[disabled] { opacity: 0.45; }
 .btn-block { display: flex; width: 100%; }
 .btn-pill { border-radius: var(--r-pill); }
 .btn-sm { min-height: 36px; padding: 0 14px; font-size: var(--fs-subhead); border-radius: 10px; }

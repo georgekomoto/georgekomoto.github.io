@@ -101,9 +101,10 @@
 .summary-page .summary-chart-card { padding: 14px 16px 12px; }
 .summary-page .summary-chart-head {
   display: flex;
+  flex-wrap: wrap; /* on narrow phones the legend drops under the title instead of splitting it */
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 4px 12px;
 }
 .summary-page .summary-card-title {
   font-size: var(--fs-footnote);
@@ -208,7 +209,8 @@
   color: var(--label-2);
 }
 
-/* ---------- Rates ---------- */
+/* ---------- Rates and export ---------- */
+.summary-page .row[disabled] { opacity: 0.45; pointer-events: none; }
 .summary-page .summary-rates .row-sub {
   font-size: var(--fs-footnote);
   line-height: var(--lh-footnote);

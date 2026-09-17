@@ -1,1 +1,224 @@
-/* entry sheet styles */
+/* Trip entry sheet. Everything is scoped under .entry. */
+
+/* The form must not break the sheet's flex column (header / scrolling content / sticky footer). */
+.entry { display: contents; }
+
+.entry .sheet-content { padding-top: 8px; padding-bottom: 32px; }
+
+/* ---------- Quick picks ---------- */
+.entry .quick { margin-bottom: 16px; }
+.entry .quick-heading {
+  font-size: var(--fs-subhead);
+  line-height: var(--lh-subhead);
+  font-weight: 600;
+  color: var(--label);
+  margin: 0;
+  padding: 0 16px 8px;
+}
+.entry .chip svg { color: var(--accent); }
+.entry .chip-label {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- Distance hero ---------- */
+.entry .hero-card { padding: 0; overflow: hidden; }
+
+.entry .hero {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 8px;
+  min-height: 92px;
+  padding: 18px 16px 14px;
+  cursor: text;
+}
+
+/* Auto-width number input: the sizer mirrors the value so the caret sits next to the unit. */
+.entry .hero-grow {
+  position: relative;
+  display: inline-grid;
+  align-items: baseline;
+  max-width: calc(100% - 60px);
+}
+.entry .hero-grow::after {
+  content: attr(data-value) " ";
+  visibility: hidden;
+  white-space: pre;
+  grid-area: 1 / 1;
+}
+.entry .hero-grow > input { grid-area: 1 / 1; width: 100%; min-width: 1ch; }
+
+.entry .hero-num,
+.entry .hero-grow::after {
+  font-size: 44px;
+  line-height: 52px;
+  font-weight: 600;
+  letter-spacing: -1px;
+  font-variant-numeric: tabular-nums;
+  color: var(--label);
+  font-family: var(--font);
+}
+
+.entry .hero-num {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  text-align: center;
+  caret-color: var(--accent);
+}
+.entry .hero-num::placeholder { color: var(--label-3); }
+.entry .hero-num:focus-visible { outline: none; }
+
+.entry .hero-out { display: block; }
+.entry .hero-out.is-empty { color: var(--label-3); }
+
+.entry .hero-unit {
+  font-size: 22px;
+  line-height: 28px;
+  font-weight: 500;
+  color: var(--label-2);
+  flex: 0 0 auto;
+}
+
+/* Round trip row and odometer fields sit inside the hero card, above the mode toggle. */
+.entry .round-row,
+.entry .odo .field { position: relative; }
+.entry .round-row::before,
+.entry .odo::before {
+  content: "";
+  position: absolute;
+  left: 16px; right: 0; top: 0;
+  height: 0.5px;
+  background: var(--separator);
+}
+.entry .odo { position: relative; }
+.entry .odo .field + .field::before { content: ""; position: absolute; left: 16px; right: 0; top: 0; height: 0.5px; background: var(--separator); }
+
+.entry .field-main { flex: 1 1 auto; min-width: 0; }
+.entry .round-row .hint { margin-top: 1px; }
+.entry .round-row .field-label { display: block; }
+
+.entry .odo .field-input { max-width: 150px; }
+.entry .odo-note {
+  margin: 0;
+  padding: 0 16px 10px;
+  text-align: right;
+}
+
+.entry .mode-toggle {
+  display: block;
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 16px;
+  color: var(--accent);
+  font-size: var(--fs-subhead);
+  font-weight: 500;
+  text-align: center;
+  position: relative;
+}
+.entry .mode-toggle::before {
+  content: "";
+  position: absolute;
+  left: 16px; right: 0; top: 0;
+  height: 0.5px;
+  background: var(--separator);
+}
+.entry .mode-toggle:active { background: var(--fill); }
+
+/* ---------- Route (From / To with a swap button) ---------- */
+.entry .route-list { position: relative; }
+.entry .route-fields { position: relative; }
+.entry .route-fields .field { padding-right: 60px; }
+
+.entry .swap-btn {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: var(--accent);
+}
+.entry .swap-btn::before {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  transition: background var(--dur-fast) linear;
+}
+.entry .swap-btn svg { position: relative; }
+.entry .swap-btn:active::before { background: var(--accent-soft-2); }
+
+/* ---------- Purpose ---------- */
+.entry .purpose-list { padding: 8px; background: transparent; }
+.entry .purpose-list .segmented { background: var(--fill); }
+.entry .purpose-list { padding: 0; }
+.entry .purpose-list .segmented { border-radius: var(--r-card); padding: 3px; }
+.entry .purpose-list .seg span { border-radius: 13px; }
+
+.entry #e-rate { padding-top: 8px; padding-bottom: 0; }
+
+/* ---------- Details ---------- */
+.entry .details-list { margin-top: 16px; }
+.entry .details-list textarea.field-input { padding: 2px 0 6px; overflow: hidden; }
+.entry .details-list .field-stacked .field-label { padding-top: 4px; }
+
+/* Compact stacked fields: iOS uses a tight caption over its value, not a two-line block. */
+.entry .route-fields .field-stacked { padding-top: 8px; padding-bottom: 8px; gap: 0; min-height: 60px; }
+.entry .route-fields .field-stacked .field-label { font-size: var(--fs-caption); line-height: 15px; letter-spacing: 0.2px; }
+.entry .route-fields .field-stacked .field-input { min-height: 28px; }
+.entry .details-list .field-stacked { padding-top: 8px; padding-bottom: 8px; gap: 0; }
+.entry .details-list .field-stacked .field-label { font-size: var(--fs-caption); line-height: 15px; letter-spacing: 0.2px; padding-top: 0; }
+.entry .date-control {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-height: 44px;
+  margin-left: auto;
+}
+.entry .date-display {
+  font-size: var(--fs-body);
+  color: var(--label);
+  white-space: nowrap;
+}
+/* The native control stays on top so it still opens the system picker, but its own text is hidden. */
+.entry .date-control input[type="date"] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  min-height: 44px;
+  opacity: 0;
+  cursor: pointer;
+}
+.entry .date-control:focus-within .date-display {
+  box-shadow: 0 0 0 2px var(--accent);
+  border-radius: 6px;
+}
+
+/* ---------- Save route / delete ---------- */
+.entry .save-route .field-label { flex: 1 1 auto; padding-right: 12px; }
+.entry .delete-btn { margin-top: 24px; }
+
+/* ---------- Footer ---------- */
+.entry .sheet-footer .error-text {
+  margin: 0 0 8px;
+  text-align: center;
+}
+.entry .sheet-footer .error-text:empty { display: none; }
+.entry .sheet-footer .btn { letter-spacing: -0.2px; }
+
+/* Missing-trip state */
+.entry[data-mode="missing"] .empty-state { padding-top: 64px; }
+.entry[data-mode="missing"] .empty-state svg { color: var(--label-3); }
+
+/* Purpose is a primary choice in this sheet, so its segments meet the 44pt target visually. */
+.entry .purpose-list .seg span { padding: 12px 8px; }

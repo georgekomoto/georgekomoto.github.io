@@ -186,10 +186,19 @@ export const store = {
     load().settings.rates = structuredClone(DEFAULT_RATES);
     commit({ type: 'settings' });
   },
-  /** Dollar value of a trip at the rate in effect on its date */
+  /** Raw stored rate for a date and purpose, in cents per mile (never unit-converted). */
+  _rawRate(date, purpose) {
+    if (purpose === 'personal') return 0;
+    const d = String(date || todayISO()).slice(0, 10);
+    const periods = load().settings.rates;
+    let match = null;
+    for (const p of periods) { if (p.from <= d) match = p; else break; }
+    return Number((match || periods[0] || {})[purpose]) || 0;
+  },
+  /** Dollar value of a trip at the rate in effect on its date. Computed per mile so the
+      total never shifts when the display unit changes. */
   tripValue(trip) {
-    const rate = this.rateFor(trip.date, trip.purpose);
-    return round(this.toDisplay(trip.distanceMi) * rate / 100, 2);
+    return round((Number(trip.distanceMi) || 0) * this._rawRate(trip.date, trip.purpose) / 100, 2);
   },
 
   // ---- vehicles

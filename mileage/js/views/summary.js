@@ -394,14 +394,12 @@ export function mount(root, ctx) {
   function chartCardHtml(months, year, units, isCurrentYear, nowMonth) {
     const hasData = months.some((m) => m.count > 0);
     // The caption answers "is my log complete?": how many of the year's months (so far) have trips.
+    // (An empty year reads "Trips in 0 of 9 months so far"; the chart itself says "No trips in 2026".)
+    const elapsed = isCurrentYear ? nowMonth + 1 : 12;
+    const logged = months.filter((m) => m.count > 0).length; // includes months dated ahead of today
     let caption;
-    if (!hasData) caption = `No trips in ${year}`;
-    else {
-      const elapsed = isCurrentYear ? nowMonth + 1 : 12;
-      const logged = months.filter((m) => m.count > 0).length; // includes months dated ahead of today
-      if (logged >= elapsed) caption = isCurrentYear ? 'Trips logged every month so far' : 'Trips logged every month';
-      else caption = `Trips in ${logged} of ${elapsed} months${isCurrentYear ? ' so far' : ''}`;
-    }
+    if (hasData && logged >= elapsed) caption = isCurrentYear ? 'Trips logged every month so far' : 'Trips logged every month';
+    else caption = `Trips in ${logged} of ${elapsed} months${isCurrentYear ? ' so far' : ''}`;
     return `
       <section class="card summary-chart-card" aria-labelledby="summary-chart-title">
         <div class="summary-chart-head">

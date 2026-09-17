@@ -97,13 +97,11 @@ export function mount(root, ctx) {
         </div>
         <div class="month-hero">
           <p class="month-distance"><span class="month-distance-value">${fmtDistance(sum.distanceMi, units, { unit: false })}</span><span class="month-distance-unit"> ${units}</span></p>
-          <p class="month-value">${fmtMoney(sum.value)} deduction</p>
+          <p class="month-value${sum.value > 0 ? '' : ' is-zero'}">${fmtMoney(sum.value)} deduction</p>
         </div>
-        <div class="purpose-bar" aria-hidden="true">${segs.length
-          ? segs.map((p) => `<span class="purpose-seg ${p}" style="flex-grow:${Number(sum.byPurpose[p].distanceMi) || 0}"></span>`).join('')
-          : '<span class="purpose-seg empty"></span>'}</div>
+        ${segs.length ? `<div class="purpose-bar" aria-hidden="true">${segs.map((p) => `<span class="purpose-seg ${p}" style="flex-grow:${Number(sum.byPurpose[p].distanceMi) || 0}"></span>`).join('')}</div>` : ''}
         ${segs.length ? `<ul class="purpose-legend">${segs.map((p) => `<li><span class="dot ${p}" aria-hidden="true"></span>${escapeHtml(purposeLabel(p))}<span class="legend-mi">${fmtDistance(sum.byPurpose[p].distanceMi, units)}</span></li>`).join('')}</ul>` : ''}
-        <p class="month-foot">${selected.year} ${yearWord} \u00b7 ${fmtDistance(ytd.distanceMi, units)} \u00b7 ${fmtMoney(ytd.value)}</p>
+        <p class="month-foot">${selected.year} ${yearWord} \u00b7 ${fmtDistance(ytd.distanceMi, units, { max: 1 })} \u00b7 ${fmtMoney(ytd.value)}</p>
       </section>`;
   }
 
@@ -112,10 +110,10 @@ export function mount(root, ctx) {
     if (!routes.length) return '';
     const labels = chipLabels(routes);
     return `
-      <h2 class="section-title" id="quick-log-title">Quick log</h2>
+      <h2 class="day-heading quick-log-heading" id="quick-log-title"><span class="day-label">Quick log</span></h2>
       <div class="chip-row" role="group" aria-labelledby="quick-log-title">${routes.map((r, i) => {
         const aria = `Log ${r.from} to ${r.to}, ${distanceWords(r.distanceMi, units)}, ${purposeLabel(r.purpose).toLowerCase()}`;
-        return `<button class="chip quick-chip" type="button" data-act="quick" data-route="${escapeHtml(r.id)}" aria-label="${escapeHtml(aria)}">${icon('route', { size: 16 })}<span class="chip-label">${escapeHtml(labels[i])}</span><span class="chip-meta">${fmtDistance(r.distanceMi, units)}</span></button>`;
+        return `<button class="chip quick-chip" type="button" data-act="quick" data-route="${escapeHtml(r.id)}" aria-label="${escapeHtml(aria)}">${icon('plus', { size: 16 })}<span class="chip-label">${escapeHtml(labels[i])}</span><span class="chip-meta">${fmtDistance(r.distanceMi, units)}</span></button>`;
       }).join('')}</div>`;
   }
 
@@ -171,10 +169,10 @@ export function mount(root, ctx) {
   function emptyStateHtml() {
     return `
       <div class="empty-state">
-        <div class="empty-icon" aria-hidden="true">${icon('route', { size: 40 })}</div>
+        <div class="empty-icon" aria-hidden="true">${icon('route', { size: 44 })}</div>
         <h2 class="title3">No trips yet</h2>
         <p>Log a trip in a few taps. Save the routes you drive often and they\u2019ll be one tap away next time.</p>
-        <button class="btn btn-primary" type="button" data-act="new">Log your first trip</button>
+        <button class="btn btn-secondary" type="button" data-act="new">Log your first trip</button>
       </div>`;
   }
 

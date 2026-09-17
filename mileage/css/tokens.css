@@ -70,18 +70,18 @@
   /* Purpose colors (dot/tint + text on white >= 4.5:1) */
   --p-business: #0B7A55;
   --p-personal: #6E6E73;
-  --p-medical: #B0245C;
+  --p-medical: #2D5EC8;
   --p-charity: #A8580C;
 
   /* Chart palette */
   --chart-1: #0B7A55;
-  --chart-2: #B0245C;
+  --chart-2: #2D5EC8;
   --chart-3: #A8580C;
   --chart-muted: #C7C7CC;
   --chart-grid: rgba(60, 60, 67, 0.12);
 
   /* Glass (floating bars, sheets) */
-  --glass-bg: rgba(255, 255, 255, 0.72);
+  --glass-bg: rgba(255, 255, 255, 0.965);
   --glass-border: rgba(0, 0, 0, 0.06);
   --glass-highlight: rgba(255, 255, 255, 0.85);
   --shadow-float: 0 10px 30px rgba(0, 0, 0, 0.14), 0 2px 6px rgba(0, 0, 0, 0.06);
@@ -117,16 +117,16 @@
 
     --p-business: #3DCA94;
     --p-personal: #B4B4B9;
-    --p-medical: #F499B9;
+    --p-medical: #8ABAFF;
     --p-charity: #F0A355;
 
     --chart-1: #3DCA94;
-    --chart-2: #F499B9;
+    --chart-2: #8ABAFF;
     --chart-3: #F0A355;
     --chart-muted: #48484A;
     --chart-grid: rgba(255, 255, 255, 0.12);
 
-    --glass-bg: rgba(28, 28, 30, 0.74);
+    --glass-bg: rgba(28, 28, 30, 0.955);
     --glass-border: rgba(255, 255, 255, 0.10);
     --glass-highlight: rgba(255, 255, 255, 0.08);
     --shadow-float: 0 10px 30px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.35);
@@ -161,14 +161,14 @@
   --warning-soft: rgba(240, 178, 74, 0.16);
   --p-business: #3DCA94;
   --p-personal: #B4B4B9;
-  --p-medical: #F499B9;
+  --p-medical: #8ABAFF;
   --p-charity: #F0A355;
   --chart-1: #3DCA94;
-  --chart-2: #F499B9;
+  --chart-2: #8ABAFF;
   --chart-3: #F0A355;
   --chart-muted: #48484A;
   --chart-grid: rgba(255, 255, 255, 0.12);
-  --glass-bg: rgba(28, 28, 30, 0.74);
+  --glass-bg: rgba(28, 28, 30, 0.955);
   --glass-border: rgba(255, 255, 255, 0.10);
   --glass-highlight: rgba(255, 255, 255, 0.08);
   --shadow-float: 0 10px 30px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.35);
