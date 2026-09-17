@@ -358,6 +358,7 @@ a.row:active, button.row:active { background: var(--fill); }
   padding: 2px var(--gutter) 6px;
   margin: 0 calc(-1 * var(--gutter));
   scroll-snap-type: x proximity;
+  scroll-padding-inline: var(--gutter);
 }
 .chip-row::-webkit-scrollbar { display: none; }
 .chip-row > * { scroll-snap-align: start; }
@@ -366,7 +367,7 @@ a.row:active, button.row:active { background: var(--fill); }
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-height: 40px;
+  min-height: 44px;
   padding: 0 14px;
   border-radius: var(--r-pill);
   background: var(--bg-elevated);

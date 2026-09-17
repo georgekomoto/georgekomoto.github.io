@@ -285,7 +285,7 @@ export const store = {
     // route usage stats
     if (t.routeId) {
       const r = load().routes.find((x) => x.id === t.routeId);
-      if (r) { r.useCount = (r.useCount || 0) + 1; r.lastUsed = t.date; }
+      if (r) { r.useCount = (r.useCount || 0) + 1; r.lastUsed = r.lastUsed && r.lastUsed > t.date ? r.lastUsed : t.date; }
     }
   },
 

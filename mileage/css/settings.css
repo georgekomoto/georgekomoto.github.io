@@ -20,6 +20,11 @@
   background: var(--separator);
 }
 
+/* ---------- 44pt hit areas without changing the visual sizes ---------- */
+.settings-page .seg input { top: -6px; bottom: -6px; height: auto; }             /* 32pt control, 44pt target */
+.settings-page .field > .field-input { min-height: 44px; margin-top: -4px; margin-bottom: -4px; }
+.settings-page .switch input { top: -7px; bottom: -6px; height: auto; }          /* 31pt switch, 44pt target */
+
 /* ---------- Inline controls inside .field ---------- */
 .settings-page .field > .segmented { margin-left: auto; flex: 0 0 auto; width: 188px; }
 .settings-page .field > select.field-input { color: var(--label-2); text-align-last: right; }
@@ -98,4 +103,5 @@
 .settings-page .empty-state svg { color: var(--label-3); }
 
 /* ---------- About line ---------- */
-.settings-page .about { text-align: center; margin-top: 36px; text-wrap: balance; }
+.settings-page .about { text-align: center; margin-top: 36px; }
+.settings-page .about-version { font-weight: 600; }

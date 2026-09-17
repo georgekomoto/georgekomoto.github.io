@@ -375,7 +375,7 @@ function renderMain(store) {
       <input type="file" id="restore-file" accept="application/json,.json" aria-label="Choose a backup file" hidden>
       <p class="section-footer">Your data stays on this device. Back up before switching phones or clearing Safari data.</p>
 
-      <p class="section-footer about">Mileage 2.0 · Built for manual logs, no tracking, no account.</p>
+      <p class="section-footer about"><span class="about-version">Mileage 2.0</span><br>Built for manual logs, no tracking, no account.</p>
     </div>`;
 }
 
