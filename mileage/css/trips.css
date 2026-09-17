@@ -1,0 +1,188 @@
+/* Trips screen (home tab). Everything is scoped under .trips-page. */
+
+/* ---------- Month card ---------- */
+.trips-page .month-card { padding: 10px 16px 14px; }
+
+.trips-page .month-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 -10px;
+}
+
+.trips-page .month-nav-btn {
+  position: relative;
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: var(--label);
+}
+.trips-page .month-nav-btn::before {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  border-radius: 50%;
+  background: var(--fill);
+  transition: background var(--dur-fast) linear;
+}
+.trips-page .month-nav-btn svg { position: relative; width: 20px; height: 20px; }
+.trips-page .month-nav-btn:active::before { background: var(--fill-strong); }
+.trips-page .month-nav-btn[disabled] { color: var(--label-3); cursor: default; }
+.trips-page .month-nav-btn[disabled]::before { opacity: 0.45; }
+
+.trips-page .month-nav-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--fs-headline);
+  line-height: var(--lh-headline);
+  font-weight: 600;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.trips-page .month-hero { margin-top: 8px; }
+
+.trips-page .month-distance {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.trips-page .month-distance-value {
+  font-size: 38px;
+  line-height: 44px;
+  font-weight: 600;
+  letter-spacing: -0.9px;
+}
+.trips-page .month-distance-unit {
+  font-size: var(--fs-title3);
+  line-height: var(--lh-title3);
+  font-weight: 500;
+  color: var(--label-2);
+}
+
+.trips-page .month-value {
+  margin-top: 1px;
+  font-size: var(--fs-headline);
+  line-height: var(--lh-headline);
+  font-weight: 600;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Purpose split: slim stacked bar with hairline gaps in the card color */
+.trips-page .purpose-bar {
+  display: flex;
+  gap: 2px;
+  height: 6px;
+  margin-top: 16px;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.trips-page .purpose-seg { flex: 1 1 0; min-width: 4px; }
+.trips-page .purpose-seg.business { background: var(--p-business); }
+.trips-page .purpose-seg.medical { background: var(--p-medical); }
+.trips-page .purpose-seg.charity { background: var(--p-charity); }
+.trips-page .purpose-seg.personal { background: var(--p-personal); }
+.trips-page .purpose-seg.empty { background: var(--fill); }
+
+.trips-page .purpose-legend {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  font-size: var(--fs-footnote);
+  line-height: var(--lh-footnote);
+}
+.trips-page .purpose-legend li { display: inline-flex; align-items: center; white-space: nowrap; }
+.trips-page .purpose-legend .dot { margin-right: 6px; vertical-align: 0; }
+.trips-page .legend-mi { margin-left: 4px; color: var(--label-2); font-variant-numeric: tabular-nums; }
+
+.trips-page .month-foot {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 0.5px solid var(--separator);
+  font-size: var(--fs-footnote);
+  line-height: var(--lh-footnote);
+  color: var(--label-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Quick log chips ---------- */
+.trips-page .quick-chip { min-height: 44px; max-width: 232px; }
+.trips-page .quick-chip svg { flex: 0 0 auto; }
+.trips-page .quick-chip .chip-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.trips-page .quick-chip .chip-meta { flex: 0 0 auto; margin-left: 2px; font-variant-numeric: tabular-nums; }
+
+/* ---------- Day groups ---------- */
+.trips-page .day-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 24px;
+  padding: 0 16px 7px;
+  font-size: var(--fs-subhead);
+  line-height: var(--lh-subhead);
+  font-weight: 600;
+  letter-spacing: -0.1px;
+}
+.trips-page .day-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.trips-page .day-total {
+  flex: 0 0 auto;
+  font-size: var(--fs-footnote);
+  line-height: var(--lh-footnote);
+  font-weight: 400;
+  color: var(--label-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Trip rows ---------- */
+.trips-page .trip-row { min-height: 60px; padding: 10px 16px; align-items: center; }
+.trips-page .trip-row .row-title .arrow { color: var(--label-2); font-weight: 400; }
+.trips-page .trip-row .row-trailing { display: flex; flex-direction: column; align-items: flex-end; }
+.trips-page .trip-row .row-money {
+  font-size: var(--fs-subhead);
+  line-height: var(--lh-subhead);
+  color: var(--label-2);
+  font-variant-numeric: tabular-nums;
+}
+.trips-page .trip-row .row-money.is-none { color: var(--label-3); }
+
+/* ---------- Empty month (trips exist elsewhere) ---------- */
+.trips-page .month-empty { margin-top: 24px; padding: 20px 16px; text-align: center; }
+.trips-page .month-empty.has-action { padding-bottom: 8px; }
+.trips-page .month-empty-text { color: var(--label-2); font-size: var(--fs-body); line-height: var(--lh-body); }
+.trips-page .month-empty .btn-plain { margin-top: 4px; }
+
+/* ---------- No trips at all ---------- */
+.trips-page .empty-state {
+  min-height: calc(100dvh - var(--safe-top) - var(--top-bar-h) - var(--content-bottom) - 96px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 24px 40px;
+}
+.trips-page .empty-icon {
+  width: 72px;
+  height: 72px;
+  margin-bottom: 18px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.trips-page .empty-icon svg { margin: 0; }
