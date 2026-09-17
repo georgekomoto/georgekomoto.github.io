@@ -1,1 +1,240 @@
-/* summary screen styles */
+/* Summary screen. Everything is scoped under .summary-page. */
+
+/* ---------- Hero card: year navigator, deduction, purpose split ---------- */
+.summary-page .summary-hero-card { padding: 10px 16px 4px; }
+
+.summary-page .summary-yearnav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 -10px;
+}
+
+.summary-page .summary-yearbtn {
+  position: relative;
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: var(--label);
+}
+.summary-page .summary-yearbtn::before {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  border-radius: 50%;
+  background: var(--fill);
+  transition: background var(--dur-fast) linear;
+}
+.summary-page .summary-yearbtn svg { position: relative; width: 20px; height: 20px; }
+.summary-page .summary-yearbtn:active::before { background: var(--fill-strong); }
+.summary-page .summary-yearbtn[disabled] { color: var(--label-3); cursor: default; }
+.summary-page .summary-yearbtn[disabled]::before { opacity: 0.45; }
+
+.summary-page .summary-yearlabel {
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: center;
+  font-size: var(--fs-headline);
+  line-height: var(--lh-headline);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.summary-page .summary-hero { margin-top: 8px; }
+.summary-page .summary-hero-label {
+  font-size: var(--fs-footnote);
+  line-height: var(--lh-footnote);
+  color: var(--label-2);
+}
+.summary-page .summary-hero-value {
+  font-size: 40px;
+  line-height: 48px;
+  font-weight: 600;
+  letter-spacing: -0.9px;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.summary-page .summary-hero-sub {
+  margin-top: 1px;
+  font-size: var(--fs-subhead);
+  line-height: var(--lh-subhead);
+  color: var(--label-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Purpose rows live inside the hero card, flush with its edges, each with a slim share bar */
+.summary-page .summary-breakdown { margin: 14px -16px 0; border-top: 0.5px solid var(--separator); }
+.summary-page .summary-prow { flex-wrap: wrap; row-gap: 7px; padding: 10px 16px 12px; }
+.summary-page .summary-prow .row-trailing { display: flex; flex-direction: column; align-items: flex-end; }
+.summary-page .summary-money {
+  font-size: var(--fs-subhead);
+  line-height: var(--lh-subhead);
+  color: var(--label-2);
+  font-variant-numeric: tabular-nums;
+}
+.summary-page .summary-money.is-none { color: var(--label-3); }
+.summary-page .summary-pbar {
+  flex: 1 0 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--fill);
+  overflow: hidden;
+}
+.summary-page .summary-pbar > span {
+  display: block;
+  height: 100%;
+  min-width: 4px;
+  border-radius: 2px;
+  background: var(--p-business);
+}
+.summary-page .summary-pbar.medical > span { background: var(--p-medical); }
+.summary-page .summary-pbar.charity > span { background: var(--p-charity); }
+.summary-page .summary-pbar.personal > span { background: var(--p-personal); }
+
+/* ---------- Miles by month ---------- */
+.summary-page .summary-chart-card { padding: 14px 16px 12px; }
+.summary-page .summary-chart-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.summary-page .summary-chart-heading { min-width: 0; }
+.summary-page .summary-card-title {
+  font-size: var(--fs-footnote);
+  line-height: var(--lh-footnote);
+  font-weight: 600;
+  color: var(--label-2);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.summary-page .summary-chart-caption {
+  margin-top: 2px;
+  font-size: var(--fs-headline);
+  line-height: var(--lh-headline);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.summary-page .summary-legend {
+  list-style: none;
+  margin: 0;
+  padding: 1px 0 0;
+  flex: 0 0 auto;
+  display: flex;
+  gap: 12px;
+  font-size: var(--fs-caption);
+  line-height: var(--lh-caption);
+  color: var(--label-2);
+}
+.summary-page .summary-legend li { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.summary-page .summary-swatch { width: 8px; height: 8px; border-radius: 2px; background: var(--chart-1); flex: 0 0 auto; }
+.summary-page .summary-swatch.per { background: var(--chart-muted); }
+
+.summary-page .summary-chart {
+  position: relative;
+  margin-top: 14px;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.summary-page .summary-svg { width: 100%; height: auto; display: block; overflow: visible; }
+.summary-page .summary-chart text { font-family: var(--font); fill: var(--label-2); }
+.summary-page .summary-tick { font-size: var(--fs-footnote); font-variant-numeric: tabular-nums; }
+.summary-page .summary-month { font-size: var(--fs-caption); font-weight: 500; }
+.summary-page .summary-month.is-now { fill: var(--label); font-weight: 700; }
+.summary-page .summary-maxlbl {
+  font-size: var(--fs-caption);
+  font-weight: 600;
+  fill: var(--label);
+  font-variant-numeric: tabular-nums;
+  paint-order: stroke fill;
+  stroke: var(--bg-elevated);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+.summary-page .summary-grid { stroke: var(--chart-grid); stroke-width: 1; }
+.summary-page .summary-axis { stroke: var(--separator); stroke-width: 1; }
+.summary-page .seg-ded { fill: var(--chart-1); }
+.summary-page .seg-per { fill: var(--chart-muted); }
+.summary-page .summary-bar { transition: opacity var(--dur-fast) linear; }
+.summary-page .summary-chart.is-scrubbing .summary-bar:not(.is-sel) { opacity: 0.4; }
+
+/* Readout layer: one wide hit target over the plot; tap, drag or use the arrow keys */
+.summary-page .summary-scrub {
+  position: absolute;
+  left: 0;
+  top: 0;
+  touch-action: pan-y;
+  cursor: crosshair;
+  border-radius: 6px;
+}
+.summary-page .summary-callout-rule {
+  position: absolute;
+  width: 1px;
+  background: var(--label-3);
+  pointer-events: none;
+  z-index: 1;
+}
+.summary-page .summary-callout {
+  position: absolute;
+  top: 0;
+  z-index: 2;
+  pointer-events: none;
+  padding: 5px 10px 6px;
+  border-radius: 10px;
+  background: var(--bg-elevated-2);
+  box-shadow: 0 0 0 0.5px var(--separator), var(--shadow-thumb);
+  text-align: center;
+  white-space: nowrap;
+}
+.summary-page .summary-callout-title { font-size: var(--fs-caption); line-height: var(--lh-caption); font-weight: 500; color: var(--label-2); }
+.summary-page .summary-callout-value { font-size: var(--fs-headline); line-height: var(--lh-headline); font-weight: 600; font-variant-numeric: tabular-nums; }
+.summary-page .summary-callout-sub { font-size: var(--fs-caption); line-height: var(--lh-caption); color: var(--label-2); font-variant-numeric: tabular-nums; }
+
+.summary-page .summary-chart-empty {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--fs-subhead);
+  line-height: var(--lh-subhead);
+  color: var(--label-2);
+}
+
+/* ---------- Rates ---------- */
+.summary-page .summary-rates .row-sub {
+  font-size: var(--fs-footnote);
+  line-height: var(--lh-footnote);
+  white-space: normal;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- No trips at all ---------- */
+.summary-page .empty-state {
+  min-height: calc(100dvh - var(--safe-top) - var(--top-bar-h) - var(--content-bottom) - 96px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 24px 40px;
+}
+.summary-page .summary-empty-icon {
+  width: 72px;
+  height: 72px;
+  margin-bottom: 18px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.summary-page .summary-empty-icon svg { margin: 0; }

@@ -8,7 +8,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  margin: 0 -10px;
+  margin: 0 -6px;
 }
 
 .trips-page .month-nav-btn {
@@ -119,7 +119,8 @@
 }
 
 /* ---------- Quick log chips ---------- */
-.trips-page .quick-chip { min-height: 44px; max-width: 232px; }
+.trips-page .chip-row { scroll-padding-inline: var(--gutter); }
+.trips-page .quick-chip { min-height: 44px; max-width: 264px; }
 .trips-page .quick-chip svg { flex: 0 0 auto; }
 .trips-page .quick-chip .chip-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .trips-page .quick-chip .chip-meta { flex: 0 0 auto; margin-left: 2px; font-variant-numeric: tabular-nums; }
@@ -150,10 +151,11 @@
 /* ---------- Trip rows ---------- */
 .trips-page .trip-row { min-height: 60px; padding: 10px 16px; align-items: center; }
 .trips-page .trip-row .row-title .arrow { color: var(--label-2); font-weight: 400; }
+.trips-page .trip-row .row-sub { font-size: var(--fs-footnote); line-height: var(--lh-footnote); }
 .trips-page .trip-row .row-trailing { display: flex; flex-direction: column; align-items: flex-end; }
 .trips-page .trip-row .row-money {
   font-size: var(--fs-subhead);
-  line-height: var(--lh-subhead);
+  line-height: var(--lh-footnote); /* matches the 18px sub-line so both columns are 40px and baselines align */
   color: var(--label-2);
   font-variant-numeric: tabular-nums;
 }

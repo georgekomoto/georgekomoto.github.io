@@ -61,12 +61,21 @@ export function mount(root, ctx) {
     return { html: escapeHtml(s), text: s };
   }
 
-  /** Chip labels: drop " · qualifier" / ", city" suffixes when every chip stays distinct, so pills stay short. */
+  /** Chip labels: drop " · qualifier" / ", city" suffixes when every chip stays distinct, then cut each side at a word boundary. */
   function chipLabels(routes) {
-    const short = (s) => { const head = String(s || '').split(/\s[\u00b7\u2022|\u2013\u2014-]\s|,\s/)[0].trim(); return head || String(s || '').trim(); };
-    const full = routes.map((r) => `${r.from} \u2192 ${r.to}`);
-    const brief = routes.map((r) => `${short(r.from)} \u2192 ${short(r.to)}`);
-    return new Set(brief).size === brief.length ? brief : full;
+    const SEP = /\s[·•|–—-]\s|,\s/;
+    const head = (s) => { const h = String(s || '').split(SEP)[0].trim(); return h || String(s || '').trim(); };
+    const cut = (s, max = 14) => {
+      s = String(s || '').trim();
+      if (s.length <= max) return s;
+      let acc = '';
+      for (const w of s.split(/\s+/)) { const next = acc ? `${acc} ${w}` : w; if (next.length > max - 1) break; acc = next; }
+      if (!acc) acc = s.slice(0, max - 1);
+      return `${acc.replace(/[\s·•,|–—-]+$/, '')}…`;
+    };
+    const brief = routes.map((r) => `${head(r.from)} → ${head(r.to)}`);
+    const pick = new Set(brief).size === brief.length ? (r) => [head(r.from), head(r.to)] : (r) => [r.from, r.to];
+    return routes.map((r) => pick(r).map((x) => cut(x)).join(' → '));
   }
 
   // ---------------------------------------------------------------- templates
