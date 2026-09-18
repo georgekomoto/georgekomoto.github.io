@@ -206,10 +206,20 @@ export const store = {
     for (const p of periods) { if (p.from <= d) match = p; else break; }
     return Number((match || periods[0] || {})[purpose]) || 0;
   },
-  /** Dollar value of a trip at the rate in effect on its date. Computed per mile so the
-      total never shifts when the display unit changes. */
+  /** Mileage-only dollar value of a trip, at the rate in effect on its date. Computed per mile so
+      the total never shifts when the display unit changes. */
   tripValue(trip) {
     return round((Number(trip.distanceMi) || 0) * this._rawRate(trip.date, trip.purpose) / 100, 2);
+  },
+  /** Tolls plus parking recorded against the trip, deductible or not. */
+  tripExtras(trip) {
+    return round((Number(trip.tolls) || 0) + (Number(trip.parking) || 0), 2);
+  },
+  /** What the trip is worth as a deduction: mileage plus tolls and parking, which the IRS allows
+      on top of the standard mileage rate. Personal trips are worth nothing. */
+  tripTotal(trip) {
+    if (trip.purpose === 'personal') return 0;
+    return round(this.tripValue(trip) + this.tripExtras(trip), 2);
   },
 
   // ---- purpose details
@@ -360,21 +370,31 @@ export const store = {
   },
   /** Totals: { count, distanceMi, value, byPurpose: {business:{count,distanceMi,value},...}, byVehicle: {id:{...}} } */
   summarize(trips) {
-    const out = { count: 0, distanceMi: 0, value: 0, deductibleMi: 0, byPurpose: {}, byVehicle: {} };
-    for (const p of PURPOSE_IDS) out.byPurpose[p] = { count: 0, distanceMi: 0, value: 0 };
+    const blank = () => ({ count: 0, distanceMi: 0, value: 0, extras: 0, total: 0 });
+    const out = { count: 0, distanceMi: 0, value: 0, extras: 0, total: 0, deductibleMi: 0, byPurpose: {}, byVehicle: {} };
+    for (const p of PURPOSE_IDS) out.byPurpose[p] = blank();
     for (const t of trips) {
       const v = this.tripValue(t);
+      const x = this.tripExtras(t);
+      const tot = this.tripTotal(t);
       out.count += 1;
       out.distanceMi += t.distanceMi;
       out.value += v;
+      out.extras += x;
+      out.total += tot;
       if (t.purpose !== 'personal') out.deductibleMi += t.distanceMi;
-      const bp = out.byPurpose[t.purpose] || (out.byPurpose[t.purpose] = { count: 0, distanceMi: 0, value: 0 });
-      bp.count += 1; bp.distanceMi += t.distanceMi; bp.value += v;
+      const bp = out.byPurpose[t.purpose] || (out.byPurpose[t.purpose] = blank());
+      bp.count += 1; bp.distanceMi += t.distanceMi; bp.value += v; bp.extras += x; bp.total += tot;
       const vid = t.vehicleId || 'none';
-      const bv = out.byVehicle[vid] || (out.byVehicle[vid] = { count: 0, distanceMi: 0, value: 0 });
-      bv.count += 1; bv.distanceMi += t.distanceMi; bv.value += v;
+      const bv = out.byVehicle[vid] || (out.byVehicle[vid] = blank());
+      bv.count += 1; bv.distanceMi += t.distanceMi; bv.value += v; bv.extras += x; bv.total += tot;
     }
     out.value = round(out.value, 2);
+    out.extras = round(out.extras, 2);
+    out.total = round(out.total, 2);
+    for (const g of [...Object.values(out.byPurpose), ...Object.values(out.byVehicle)]) {
+      g.value = round(g.value, 2); g.extras = round(g.extras, 2); g.total = round(g.total, 2);
+    }
     return out;
   },
 
@@ -447,11 +467,13 @@ export const store = {
   // ---- export / import
   csv(trips) {
     const units = this.units();
-    const head = ['Date', 'From', 'To', 'Purpose', 'Purpose detail', `Distance (${units})`, `Rate (cents per ${units === 'km' ? 'km' : 'mile'})`, 'Value (USD)', 'Vehicle', 'Round trip', 'Odometer start', 'Odometer end', 'Notes'];
+    const head = ['Date', 'Time', 'From', 'To', 'Purpose', 'Purpose detail', `Distance (${units})`, `Rate (cents per ${units === 'km' ? 'km' : 'mile'})`, 'Mileage value (USD)', 'Tolls (USD)', 'Parking (USD)', 'Deductible total (USD)', 'Vehicle', 'Round trip', 'Odometer start', 'Odometer end', 'Notes'];
     const rows = trips.slice().sort(byDateAsc).map((t) => [
-      t.date, t.from, t.to, purposeLabel(t.purpose), t.detail || '',
+      t.date, t.time || '', t.from, t.to, purposeLabel(t.purpose), t.detail || '',
       fmtDistance(t.distanceMi, units, { unit: false, max: 1 }).replace(/,/g, ''),
       this.rateFor(t.date, t.purpose), this.tripValue(t).toFixed(2),
+      t.tolls != null ? t.tolls.toFixed(2) : '', t.parking != null ? t.parking.toFixed(2) : '',
+      this.tripTotal(t).toFixed(2),
       this.vehicle(t.vehicleId)?.name || '', t.roundTrip ? 'Yes' : 'No',
       t.odoStart ?? '', t.odoEnd ?? '', t.notes || '',
     ]);
@@ -544,9 +566,35 @@ export const store = {
 
 // ------------------------------------------------------------------ helpers
 
-function byDateDesc(a, b) { return (b.date || '').localeCompare(a.date || '') || (b.createdAt || '').localeCompare(a.createdAt || ''); }
+/** Newest first. Within a day, later times come first; a trip with no time has no position in
+    the day, so it sits at the top with the most recently added. */
+function byDateDesc(a, b) {
+  return (b.date || '').localeCompare(a.date || '')
+    || (b.time || '99:99').localeCompare(a.time || '99:99')
+    || (b.createdAt || '').localeCompare(a.createdAt || '');
+}
 function byDateAsc(a, b) { return -byDateDesc(a, b); }
 function norm(s) { return String(s || '').trim().toLowerCase(); }
+
+/** 'HH:MM' in 24-hour form, or '' when absent or unparseable. */
+function normalizeTime(v) {
+  const raw = String(v ?? '').trim();
+  if (!raw) return '';
+  const m = raw.match(/^(\d{1,2}):(\d{2})/);
+  if (!m) return '';
+  const h = Number(m[1]), min = Number(m[2]);
+  if (h > 23 || min > 59) return '';
+  return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
+}
+
+/** A dollar amount, or null when blank. Negative and absurd values are rejected. */
+function money(v) {
+  if (v === '' || v == null) return null;
+  const n = typeof v === 'number' ? v : parseFloat(String(v).replace(/[^0-9.\-]/g, ''));
+  if (!Number.isFinite(n) || n < 0) return null;
+  if (n > 100000) throw new Error('That amount looks too large.');
+  return round(n, 2);
+}
 
 function classifyPurpose(text) {
   const t = norm(text);
@@ -570,6 +618,9 @@ function cleanTrip(input, api) {
   t.odoEnd = num(t.odoEnd);
   t.notes = String(t.notes || '').trim().slice(0, 500);
   t.detail = String(t.detail || '').trim().slice(0, 60);
+  t.time = normalizeTime(t.time);
+  t.tolls = money(t.tolls);
+  t.parking = money(t.parking);
   t.routeId = t.routeId || null;
   let mi = num(t.distanceMi);
   if (mi == null && t.distance != null) mi = api.fromDisplay(num(t.distance));

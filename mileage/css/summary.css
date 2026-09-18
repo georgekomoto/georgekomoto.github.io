@@ -239,3 +239,12 @@
   justify-content: center;
 }
 .summary-page .summary-empty-icon svg { margin: 0; }
+
+/* Explain the headline when it is more than mileage alone. */
+.summary-page .summary-hero-split {
+  margin-top: 4px;
+  font-size: var(--fs-footnote);
+  line-height: var(--lh-footnote);
+  color: var(--label-2);
+  font-variant-numeric: tabular-nums;
+}

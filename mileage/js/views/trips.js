@@ -1,7 +1,7 @@
 // Trips — the home tab. Month summary card, quick-log chips for saved routes,
 // and the month's trips grouped by day. Re-renders on store changes.
 
-import { escapeHtml, fmtDistance, fmtMoney, fmtDayHeading, fmtMonthYear, addMonths, todayISO } from '../format.js';
+import { escapeHtml, fmtDistance, fmtMoney, fmtTime, fmtDayHeading, fmtMonthYear, addMonths, todayISO } from '../format.js';
 import { purposeLabel } from '../store.js';
 
 // Deductible purposes first; personal is the non-deductible remainder.
@@ -98,14 +98,14 @@ export function mount(root, ctx) {
         </div>
         <div class="month-hero">
           <p class="month-distance"><span class="month-distance-value">${fmtDistance(sum.distanceMi, units, { unit: false })}</span><span class="month-distance-unit"> ${units}</span></p>
-          <p class="month-value${sum.value > 0 ? '' : ' is-zero'}">${fmtMoney(sum.value)} deduction</p>
+          <p class="month-value${sum.total > 0 ? '' : ' is-zero'}">${fmtMoney(sum.total)} deduction</p>
         </div>
         ${segs.length ? `<div class="purpose-bar" aria-hidden="true">${segs.map((p) => `<span class="purpose-seg ${p}" style="flex-grow:${Number(sum.byPurpose[p].distanceMi) || 0}"></span>`).join('')}</div>` : ''}
         ${segs.length ? `<ul class="purpose-legend">${segs.map((p) => {
           const on = filter === p;
           return `<li><button class="legend-btn${on ? ' is-on' : ''}" type="button" data-act="filter" data-purpose="${p}" aria-pressed="${on}" aria-label="${escapeHtml(`${on ? 'Clear the' : 'Show only'} ${purposeLabel(p).toLowerCase()} filter`)}"><span class="dot ${p}" aria-hidden="true"></span><span class="legend-name">${escapeHtml(purposeLabel(p))}</span><span class="legend-mi">${fmtDistance(sum.byPurpose[p].distanceMi, units)}</span></button></li>`;
         }).join('')}</ul>` : ''}
-        <p class="month-foot">${selected.year} ${yearWord} \u00b7 ${fmtDistance(ytd.distanceMi, units, { max: 1 })} \u00b7 ${fmtMoney(ytd.value)}</p>
+        <p class="month-foot">${selected.year} ${yearWord} \u00b7 ${fmtDistance(ytd.distanceMi, units, { max: 1 })} \u00b7 ${fmtMoney(ytd.total)}</p>
       </section>`;
   }
 
@@ -121,17 +121,20 @@ export function mount(root, ctx) {
       }).join('')}</div>`;
   }
 
-  function rowHtml(t, units) {
+  function rowHtml(t, units, defaultVehicleId) {
     const vehicle = t.vehicleId ? store.vehicle(t.vehicleId) : null;
     const personal = t.purpose === 'personal';
-    const value = store.tripValue(t);
+    const value = store.tripTotal(t);
+    const extras = store.tripExtras(t);
     const title = tripTitle(t);
-    const sub = [t.detail || purposeLabel(t.purpose)];
-    if (vehicle) sub.push(vehicle.name);
+    const sub = [];
+    if (t.time) sub.push(fmtTime(t.time));
+    sub.push(t.detail || purposeLabel(t.purpose));
+    if (vehicle && vehicle.id !== defaultVehicleId) sub.push(vehicle.name);
     if (t.roundTrip) sub.push('Round trip');
     const aria = [title.text, distanceWords(t.distanceMi, units), t.detail ? `${purposeLabel(t.purpose).toLowerCase()}, ${t.detail}` : purposeLabel(t.purpose).toLowerCase()];
     if (t.roundTrip) aria.push('round trip');
-    if (!personal) aria.push(fmtMoney(value));
+    if (!personal) aria.push(extras > 0 ? `${fmtMoney(value)} including ${fmtMoney(extras)} tolls and parking` : fmtMoney(value));
     aria.push(fmtDayHeading(t.date));
     return `
       <button class="row trip-row" type="button" data-act="open" data-id="${escapeHtml(t.id)}" aria-label="${escapeHtml(aria.join(', '))}">
@@ -141,12 +144,13 @@ export function mount(root, ctx) {
         </div>
         <div class="row-trailing">
           <div class="row-value">${fmtDistance(t.distanceMi, units)}</div>
-          <div class="row-money${personal ? ' is-none' : ''}">${personal ? '\u2014' : fmtMoney(value)}</div>
+          <div class="row-money${personal ? ' is-none' : ''}">${personal ? '\u2014' : fmtMoney(value)}${!personal && extras > 0 ? '<span class="row-extras" aria-hidden="true">+</span>' : ''}</div>
         </div>
       </button>`;
   }
 
   function listHtml(trips, units) {
+    const defaultVehicleId = (store.defaultVehicle() || {}).id || null;
     const groups = [];
     for (const t of trips) {
       const g = groups[groups.length - 1];
@@ -156,7 +160,7 @@ export function mount(root, ctx) {
       const total = g.trips.reduce((s, t) => s + (Number(t.distanceMi) || 0), 0);
       return `
         <h2 class="day-heading"><span class="day-label">${escapeHtml(fmtDayHeading(g.date))}</span><span class="day-total">${fmtDistance(total, units)}</span></h2>
-        <div class="list">${g.trips.map((t) => rowHtml(t, units)).join('')}</div>`;
+        <div class="list">${g.trips.map((t) => rowHtml(t, units, defaultVehicleId)).join('')}</div>`;
     }).join('');
   }
 
@@ -230,7 +234,7 @@ export function mount(root, ctx) {
   function announceMonth() {
     const trips = store.tripsForMonth(selected.year, selected.month);
     const sum = store.summarize(trips);
-    const text = `${fmtMonthYear(selected.year, selected.month)}: ${trips.length} trip${trips.length === 1 ? '' : 's'}, ${distanceWords(sum.distanceMi, store.units())}, ${fmtMoney(sum.value)} deduction`;
+    const text = `${fmtMonthYear(selected.year, selected.month)}: ${trips.length} trip${trips.length === 1 ? '' : 's'}, ${distanceWords(sum.distanceMi, store.units())}, ${fmtMoney(sum.total)} deduction`;
     setTimeout(() => { const el = root.querySelector('[data-live]'); if (alive && el) el.textContent = text; }, 80);
   }
 

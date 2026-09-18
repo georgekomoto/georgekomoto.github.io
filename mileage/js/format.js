@@ -135,6 +135,16 @@ export function fmtRelativeShort(s) {
   return fmtDate(s);
 }
 
+/** 'HH:MM' -> '8:05 AM'. Returns '' for a blank or unparseable value. */
+export function fmtTime(hhmm) {
+  const m = String(hhmm || '').match(/^(\d{1,2}):(\d{2})/);
+  if (!m) return '';
+  const h = Number(m[1]);
+  const suffix = h < 12 ? 'AM' : 'PM';
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h12}:${m[2]} ${suffix}`;
+}
+
 export function csvEscape(v) {
   const s = String(v ?? '');
   return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;

@@ -213,6 +213,9 @@ async function openSheet(name, params, query) {
   lockedScrollY = window.scrollY;
   document.body.classList.add('sheet-open');
   tabRoot.scrollTop = lockedScrollY;
+  // Content behind a modal sheet is dimmed and untouchable, so take it out of the
+  // accessibility tree and the tab order too.
+  setBackdropInert(true);
   applyThemeColor();
   sheetRoot.querySelector('.sheet-backdrop').addEventListener('click', () => app.closeSheet());
   document.addEventListener('keydown', onSheetKey);
@@ -225,6 +228,13 @@ async function openSheet(name, params, query) {
 }
 
 function onSheetKey(e) { if (e.key === 'Escape') app.closeSheet(); }
+
+function setBackdropInert(on) {
+  for (const node of [tabRoot, tabBarWrap, topBar]) {
+    if (on) { node.setAttribute('inert', ''); node.setAttribute('aria-hidden', 'true'); }
+    else { node.removeAttribute('inert'); node.removeAttribute('aria-hidden'); }
+  }
+}
 
 function closeSheet(immediate = false) {
   return new Promise((resolve) => {
@@ -239,6 +249,7 @@ function closeSheet(immediate = false) {
       resolve();
     };
     document.body.classList.remove('sheet-open');
+    setBackdropInert(false);
     document.documentElement.style.removeProperty('--kb-inset');
     document.documentElement.style.removeProperty('--sheet-safe-bottom');
     window.scrollTo(0, lockedScrollY);

@@ -54,7 +54,7 @@
   --fill-strong: rgba(118, 118, 128, 0.20);
   --label: #000000;
   --label-2: #5C5C61;          /* 5.9:1 on #F2F2F7, 6.9:1 on white */
-  --label-3: #7A7A80;          /* decorative / large text only */
+  --label-3: #6E6E74;          /* placeholders and hints: 5.1:1 on white, 4.5:1 on the page */
   --separator: rgba(60, 60, 67, 0.18);
   --separator-opaque: #D8D8DC;
   --accent: #0B7A55;           /* 5.4:1 with white */

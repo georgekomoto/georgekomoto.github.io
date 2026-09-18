@@ -2,7 +2,7 @@
 // Renders once, then patches the live nodes (summary, hints, visibility) as the user types.
 // Goal: a repeat trip is two taps (chip, Save); a new trip needs one number.
 
-import { escapeHtml, fmtDistance, fmtMoney, fmtCents, fmtDate, todayISO, isValidISODate } from '../format.js';
+import { escapeHtml, fmtDistance, fmtMoney, fmtCents, fmtDate, fmtTime, todayISO, isValidISODate } from '../format.js';
 import { PURPOSES, PURPOSE_IDS, purposeLabel } from '../store.js';
 
 const MAX_PLACES = 60;
@@ -39,8 +39,12 @@ export function mount(root, ctx) {
     vehicleId: (vehicles.find((v) => v.id === src.vehicleId) || defaultVehicle || {}).id || null,
     notes: str(src.notes),
     detail: str(src.detail),
+    time: str(src.time),
+    tolls: src.tolls != null ? fmtInput(src.tolls) : '',
+    parking: src.parking != null ? fmtInput(src.parking) : '',
     saveRoute: true,
   };
+  const showExtrasAtStart = !!(st.tolls || st.parking);
   const hasOdo = src.odoStart != null && src.odoEnd != null;
   if (hasOdo) {
     st.mode = 'odometer';
@@ -65,7 +69,7 @@ export function mount(root, ctx) {
     roundRow: $('#e-round-row'), round: $('#e-round'), roundHint: $('#e-round-hint'),
     odo: $('#e-odo'), odoStart: $('#e-odo-start'), odoEnd: $('#e-odo-end'), odoNote: $('#e-odo-note'), mode: $('#e-mode'),
     from: $('#e-from'), to: $('#e-to'), swap: $('#e-swap'), places: $('#e-places'),
-    rate: $('#e-rate'), detailRow: $('#e-detail-row'), detailChips: $('#e-detail-chips'), detailCustom: $('#e-detail-custom'), detailInput: $('#e-detail-input'), detailAdd: $('#e-detail-add'), date: $('#e-date'), dateDisplay: $('#e-date-display'), vehicle: $('#e-vehicle'), notes: $('#e-notes'),
+    rate: $('#e-rate'), detailRow: $('#e-detail-row'), detailChips: $('#e-detail-chips'), detailCustom: $('#e-detail-custom'), detailInput: $('#e-detail-input'), detailAdd: $('#e-detail-add'), date: $('#e-date'), dateDisplay: $('#e-date-display'), time: $('#e-time'), timeDisplay: $('#e-time-display'), extrasToggle: $('#e-extras-toggle'), extras: $('#e-extras'), tolls: $('#e-tolls'), parking: $('#e-parking'), vehicle: $('#e-vehicle'), notes: $('#e-notes'),
     saveRouteRow: $('#e-save-route'), saveRouteSwitch: $('#e-save-route-switch'),
     del: $('#e-delete'), error: $('#e-error'), save: $('#e-save'),
   };
@@ -75,6 +79,8 @@ export function mount(root, ctx) {
   el.odoStart.value = st.odoStart; el.odoEnd.value = st.odoEnd;
   el.from.value = st.from; el.to.value = st.to;
   el.notes.value = st.notes;
+  el.tolls.value = st.tolls; el.parking.value = st.parking;
+  if (showExtrasAtStart) setExtrasOpen(true, { focus: false });
   renderPlaces();
   renderDetails();
   renderChips();
@@ -153,6 +159,24 @@ export function mount(root, ctx) {
     update();
   });
   el.notes.addEventListener('input', () => { st.notes = el.notes.value; growNotes(); });
+
+  const onTime = () => { st.time = el.time.value; update(); };
+  el.time.addEventListener('input', onTime);
+  el.time.addEventListener('change', onTime);
+
+  el.extrasToggle.addEventListener('click', () => setExtrasOpen(el.extras.hidden));
+  for (const [node, key] of [[el.tolls, 'tolls'], [el.parking, 'parking']]) {
+    node.addEventListener('input', () => {
+      const clean = sanitizeDecimal(node.value, 6, 2);
+      if (clean !== node.value) node.value = clean;
+      st[key] = clean; clearError(); update();
+    });
+    node.addEventListener('blur', () => {
+      const t = trimSeparator(node.value);
+      if (t !== node.value) { node.value = t; st[key] = t; update(); }
+    });
+    node.addEventListener('keydown', onEnterSave);
+  }
 
   el.detailChips.addEventListener('click', (e) => {
     const b = e.target.closest('.chip');
@@ -253,8 +277,24 @@ export function mount(root, ctx) {
             <input class="field-input num" id="e-date" type="date" value="${st.date}" required>
           </span>
         </label>
+        <label class="field"><span class="field-label">Time</span>
+          <span class="time-control">
+            <span class="time-display" id="e-time-display" aria-hidden="true"></span>
+            <input class="field-input num" id="e-time" type="time" value="${escapeHtml(st.time)}">
+          </span>
+        </label>
         ${vehicleRow}
         <label class="field field-stacked"><span class="field-label">Notes</span><textarea class="field-input" id="e-notes" rows="1" placeholder="Optional" maxlength="500" autocapitalize="sentences"></textarea></label>
+      </div>
+      <button class="btn btn-plain extras-toggle" type="button" id="e-extras-toggle" aria-expanded="false" aria-controls="e-extras">Add tolls or parking</button>
+      <div class="list extras-list" id="e-extras" hidden>
+        <label class="field"><span class="field-label">Tolls</span>
+          <span class="money-field"><span class="money-sign" aria-hidden="true">$</span><input class="field-input num" id="e-tolls" type="text" inputmode="decimal" placeholder="0.00" maxlength="9" autocomplete="off" aria-label="Tolls in dollars"></span>
+        </label>
+        <label class="field"><span class="field-label">Parking</span>
+          <span class="money-field"><span class="money-sign" aria-hidden="true">$</span><input class="field-input num" id="e-parking" type="text" inputmode="decimal" placeholder="0.00" maxlength="9" autocomplete="off" aria-label="Parking in dollars"></span>
+        </label>
+        <p class="section-footer extras-note">Tolls and parking are deductible on top of the mileage rate.</p>
       </div>
       ${isNew ? `<div class="list save-route" id="e-save-route" hidden>
         <div class="field">
@@ -338,6 +378,9 @@ export function mount(root, ctx) {
     }
 
     el.dateDisplay.textContent = st.date ? fmtDate(st.date, { weekday: true, year: true }) : 'Pick a date';
+    el.timeDisplay.textContent = st.time ? fmtTime(st.time) : 'Optional';
+    el.timeDisplay.classList.toggle('is-empty', !st.time);
+    el.time.setAttribute('aria-label', st.time ? `Time, ${fmtTime(st.time)}` : 'Time, optional');
     el.date.setAttribute('aria-label', `Date${st.date ? `, ${fmtDate(st.date, { weekday: true, year: true })}` : ''}`);
 
     const rate = store.rateFor(st.date || todayISO(), st.purpose);
@@ -357,7 +400,10 @@ export function mount(root, ctx) {
 
   function summaryLabel(totalMi, units) {
     let s = `Save trip · ${fmtDistance(totalMi, units)}`;
-    if (st.purpose !== 'personal') s += ` · ${fmtMoney(store.tripValue({ date: st.date, purpose: st.purpose, distanceMi: totalMi }))}`;
+    if (st.purpose !== 'personal') {
+      const worth = store.tripValue({ date: st.date, purpose: st.purpose, distanceMi: totalMi }) + extrasTotal();
+      s += ` · ${fmtMoney(worth)}`;
+    }
     return s;
   }
 
@@ -407,6 +453,16 @@ export function mount(root, ctx) {
     update();
     if (focus) primaryInput().focus();
   }
+
+  function setExtrasOpen(open, { focus = true } = {}) {
+    el.extras.hidden = !open;
+    el.extrasToggle.setAttribute('aria-expanded', String(open));
+    el.extrasToggle.textContent = open ? 'Hide tolls and parking' : 'Add tolls or parking';
+    if (open && focus) el.tolls.focus();
+    if (!open) { st.tolls = ''; st.parking = ''; el.tolls.value = ''; el.parking.value = ''; update(); }
+  }
+
+  function extrasTotal() { return parseDecimal(st.tolls) + parseDecimal(st.parking); }
 
   function renderDetails() {
     const list = store.detailsFor(st.purpose);
@@ -511,7 +567,9 @@ export function mount(root, ctx) {
       const data = {
         date: st.date, from, to, distanceMi: totalMi, purpose: st.purpose, vehicleId: st.vehicleId, roundTrip: st.roundTrip,
         odoStart: odo ? parseDecimal(st.odoStart) : null, odoEnd: odo ? parseDecimal(st.odoEnd) : null,
-        notes: st.notes, detail: st.detail, routeId,
+        notes: st.notes, detail: st.detail, time: st.time,
+        tolls: st.tolls === '' ? null : parseDecimal(st.tolls), parking: st.parking === '' ? null : parseDecimal(st.parking),
+        routeId,
       };
       if (isNew) store.addTrip(data); else store.updateTrip(rawId, data);
     } catch (err) {

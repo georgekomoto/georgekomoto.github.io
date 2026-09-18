@@ -367,7 +367,7 @@ export function mount(root, ctx) {
         </div>
         <div class="row-trailing">
           <div class="row-value">${fmtDistance(bp.distanceMi, units)}</div>
-          <div class="summary-money${personal ? ' is-none' : ''}">${personal ? '<span aria-hidden="true">\u2014</span><span class="sr-only">Not deductible</span>' : fmtMoney(bp.value)}</div>
+          <div class="summary-money${personal ? ' is-none' : ''}">${personal ? '<span aria-hidden="true">\u2014</span><span class="sr-only">Not deductible</span>' : fmtMoney(bp.total)}</div>
         </div>
         <div class="summary-pbar ${p}" aria-hidden="true"><span style="width:${share.toFixed(1)}%"></span></div>
       </div>`;
@@ -384,8 +384,9 @@ export function mount(root, ctx) {
         ${yearNavHtml(ys)}
         <div class="summary-hero">
           <p class="summary-hero-label">Estimated deduction</p>
-          <p class="summary-hero-value">${fmtMoney(sum.value)}</p>
+          <p class="summary-hero-value">${fmtMoney(sum.total)}</p>
           <p class="summary-hero-sub">${sub}</p>
+          ${sum.extras > 0 ? `<p class="summary-hero-split">${fmtMoney(sum.value)} mileage + ${fmtMoney(sum.extras)} tolls and parking</p>` : ''}
         </div>
         ${rows.length ? `<div class="summary-breakdown">${rows.map((p) => breakdownRowHtml(p, sum.byPurpose[p], sum.distanceMi, units)).join('')}</div>` : ''}
       </section>`;
@@ -427,7 +428,7 @@ export function mount(root, ctx) {
         return `
           <div class="row">
             <div class="row-main"><div class="row-title">${escapeHtml(name)}</div><div class="row-sub">${plural(v.count, 'trip')}</div></div>
-            <div class="row-trailing"><div class="row-value">${fmtDistance(v.distanceMi, units)}</div><div class="summary-money">${fmtMoney(v.value)}</div></div>
+            <div class="row-trailing"><div class="row-value">${fmtDistance(v.distanceMi, units)}</div><div class="summary-money">${fmtMoney(v.total)}</div></div>
           </div>`;
       }).join('')}</div>`;
   }
@@ -530,7 +531,7 @@ export function mount(root, ctx) {
   function announceYear() {
     const trips = store.tripsForYear(selectedYear);
     const sum = store.summarize(trips);
-    const text = `${selectedYear}: ${plural(trips.length, 'trip')}, ${distanceWords(store.toDisplay(sum.distanceMi), store.units())}, ${fmtMoney(sum.value)} deduction`;
+    const text = `${selectedYear}: ${plural(trips.length, 'trip')}, ${distanceWords(store.toDisplay(sum.distanceMi), store.units())}, ${fmtMoney(sum.total)} deduction`;
     setTimeout(() => { const el = root.querySelector('[data-live]'); if (alive && el) el.textContent = text; }, 80);
   }
 

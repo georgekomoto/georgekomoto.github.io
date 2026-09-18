@@ -117,6 +117,13 @@
   color: var(--label);
   transition: background var(--dur-fast) linear;
 }
+/* The row stays 34pt so the card stays short; the touch area is expanded past it. */
+.trips-page .legend-btn { position: relative; }
+.trips-page .legend-btn::after {
+  content: "";
+  position: absolute;
+  inset: -5px 0;
+}
 .trips-page .legend-btn:active { background: var(--fill); }
 .trips-page .legend-btn.is-on { background: var(--fill); font-weight: 600; }
 .trips-page .legend-name { overflow: hidden; text-overflow: ellipsis; }
@@ -215,3 +222,10 @@
 
 /* Quick log shares the day-heading style so one header system runs down the screen. */
 .trips-page .quick-log-heading { margin-bottom: 0; }
+
+/* Marks a row whose value includes tolls or parking. */
+.trips-page .row-extras {
+  margin-left: 2px;
+  color: var(--label-3);
+  font-weight: 400;
+}

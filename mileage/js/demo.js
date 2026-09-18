@@ -94,9 +94,26 @@ export function seed(store, name = 'demo') {
     [356, 'foodbank', civic, true, ''],
   ];
 
-  for (const [ago, r, vehicle, roundTrip, notes] of plan) {
+  // Times, tolls, parking and purpose details on a realistic minority of trips.
+  const extras = {
+    sfo: { tolls: 8, parking: 42 },
+    client: { parking: 6 },
+  };
+  const details = { office: 'Between offices', client: 'Client visit', sfo: 'Airport or travel', stanford: 'Appointment', foodbank: 'Volunteer shift' };
+  const times = ['07:45', '08:10', '08:30', '12:05', '13:20', '16:50', '17:35', '18:15'];
+
+  plan.forEach(([ago, r, vehicle, roundTrip, notes], i) => {
     const src = typeof r === 'string' ? R[r] : r;
     const distanceMi = src.distanceMi * (roundTrip ? 2 : 1);
-    store.addTrip({ date: daysAgo(ago), from: src.from, to: src.to, distanceMi, purpose: src.purpose, vehicleId: vehicle.id, roundTrip, notes, routeId: typeof r === 'string' ? src.id : null });
-  }
+    const key = typeof r === 'string' ? r : null;
+    const x = (key && extras[key]) || {};
+    store.addTrip({
+      date: daysAgo(ago), from: src.from, to: src.to, distanceMi, purpose: src.purpose,
+      vehicleId: vehicle.id, roundTrip, notes,
+      detail: key ? details[key] || '' : '',
+      time: i % 3 === 0 ? times[i % times.length] : '',
+      tolls: x.tolls ?? null, parking: x.parking ?? null,
+      routeId: key ? src.id : null,
+    });
+  });
 }

@@ -36,8 +36,14 @@ Views implement `mount(root, ctx)` and may return a cleanup function. `ctx` give
 ## Data model
 
 Distances are stored in miles (`distanceMi`); kilometers are a display setting. A trip is
-`{ id, date, from, to, distanceMi, purpose, vehicleId, roundTrip, odoStart, odoEnd, notes, routeId }`
-with `purpose` one of `business`, `personal`, `medical`, `charity`. The value of a trip is its distance times the rate in effect on its date.
+`{ id, date, time, from, to, distanceMi, purpose, detail, vehicleId, roundTrip, odoStart, odoEnd, tolls, parking, notes, routeId }`
+with `purpose` one of `business`, `personal`, `medical`, `charity` and `detail` the specific business
+purpose the IRS asks for, chosen from per-category suggestions or the driver's own.
+
+A trip's mileage value is its distance times the rate in effect on its date. Tolls and parking are
+deductible on top of the standard mileage rate, so a trip's deduction is the mileage value plus those
+amounts; personal trips are worth nothing regardless. Time of day is optional and, when present,
+orders trips within a day.
 
 Rate defaults (cents per mile) follow IRS Notice 2025-5 (2025), Notice 2026-10 (Jan–Jun 2026) and Announcement 2026-11 (from Jul 1, 2026). They are editable under Settings → Mileage rates; check irs.gov before filing.
 
