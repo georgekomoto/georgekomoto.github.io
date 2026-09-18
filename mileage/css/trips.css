@@ -1,7 +1,7 @@
 /* Trips screen (home tab). Everything is scoped under .trips-page. */
 
 /* ---------- Month card ---------- */
-.trips-page .month-card { padding: 10px 16px 14px; }
+.trips-page .month-card { padding: 6px 16px 12px; }
 
 .trips-page .month-nav {
   display: flex;
@@ -47,7 +47,7 @@
   text-overflow: ellipsis;
 }
 
-.trips-page .month-hero { margin-top: 8px; }
+.trips-page .month-hero { margin-top: 2px; }
 
 .trips-page .month-distance {
   display: flex;
@@ -96,15 +96,30 @@
 
 .trips-page .purpose-legend {
   list-style: none;
-  margin: 10px 0 0;
+  margin: 8px -8px 0;
   padding: 0;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 4px 12px;
+  gap: 0 4px;
   font-size: var(--fs-subhead);
   line-height: var(--lh-subhead);
 }
-.trips-page .purpose-legend li { display: flex; align-items: center; white-space: nowrap; min-width: 0; }
+.trips-page .purpose-legend li { display: flex; min-width: 0; }
+.trips-page .legend-btn {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  width: 100%;
+  min-height: 34px;
+  padding: 0 8px;
+  border-radius: 8px;
+  white-space: nowrap;
+  color: var(--label);
+  transition: background var(--dur-fast) linear;
+}
+.trips-page .legend-btn:active { background: var(--fill); }
+.trips-page .legend-btn.is-on { background: var(--fill); font-weight: 600; }
+.trips-page .legend-name { overflow: hidden; text-overflow: ellipsis; }
 .trips-page .purpose-legend .dot { margin-right: 6px; vertical-align: 0; }
 .trips-page .legend-mi { margin-left: 4px; color: var(--label-2); font-variant-numeric: tabular-nums; }
 

@@ -464,7 +464,7 @@ export function mount(root, ctx) {
           <div class="row-main"><div class="row-title">Export all trips as CSV</div><div class="row-sub">${plural(allCount, 'trip')}</div></div>
         </button>
       </div>
-      <p class="section-footer">Each row has the date, route, purpose, distance, rate and value \u2014 the fields an IRS mileage log needs.</p>`;
+      <p class="section-footer">Each row carries the date, route, purpose and purpose detail, distance, the rate in effect that day, the value, vehicle, round trip, both odometer readings and your notes — the fields an IRS mileage log needs.</p>`;
   }
 
   function emptyHtml() {

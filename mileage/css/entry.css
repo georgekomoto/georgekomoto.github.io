@@ -30,7 +30,7 @@
   display: flex;
   align-items: baseline;
   justify-content: center;
-  gap: 8px;
+  gap: 6px;
   min-height: 92px;
   padding: 18px 16px 14px;
   cursor: text;
@@ -39,17 +39,23 @@
 /* Auto-width number input: the sizer mirrors the value so the caret sits next to the unit. */
 .entry .hero-grow {
   position: relative;
-  display: inline-grid;
-  align-items: baseline;
+  display: inline-block;
+  min-width: 1ch;
   max-width: calc(100% - 60px);
 }
+/* The hidden sizer mirrors the value and is the only thing that sets the width, so the unit
+   always sits just after the last digit. The field itself is taken out of flow. */
 .entry .hero-grow::after {
-  content: attr(data-value) " ";
+  content: attr(data-value);
   visibility: hidden;
   white-space: pre;
-  grid-area: 1 / 1;
+  display: block;
 }
-.entry .hero-grow > input { grid-area: 1 / 1; width: 100%; min-width: 1ch; }
+.entry .hero-grow > input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+}
 
 .entry .hero-num,
 .entry .hero-grow::after {
@@ -222,3 +228,20 @@
 
 /* Purpose is a primary choice in this sheet, so its segments meet the 44pt target visually. */
 .entry .purpose-list .seg span { padding: 12px 8px; }
+
+/* ---------- Purpose detail ---------- */
+.entry .detail-row { margin-top: 10px; }
+.entry .detail-chips { padding-top: 0; padding-bottom: 0; }
+.entry .detail-chip { min-height: 38px; font-size: var(--fs-footnote); padding: 0 12px; gap: 5px; }
+.entry .detail-chip svg { width: 15px; height: 15px; }
+.entry .detail-chip.is-add { color: var(--accent); box-shadow: inset 0 0 0 1px var(--separator); }
+.entry .detail-chip.is-add svg { color: var(--accent); }
+
+.entry .detail-custom {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 16px 0;
+}
+.entry .detail-custom .input-box { flex: 1 1 auto; min-height: 40px; }
+.entry .detail-custom .btn { flex: 0 0 auto; min-height: 40px; }

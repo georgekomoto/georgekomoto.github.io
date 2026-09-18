@@ -170,7 +170,18 @@ body.sheet-open .tab-root {
   pointer-events: none;
 }
 
-.tab-bar-wrap > * { pointer-events: auto; }
+.tab-bar-wrap > * { pointer-events: auto; position: relative; z-index: 1; }
+
+/* A scrim under the floating bar so list text never reads through the gaps around it. */
+.tab-bar-wrap::before {
+  content: "";
+  z-index: 0;
+  position: absolute;
+  left: 0; right: 0; bottom: calc(-1 * (var(--safe-bottom) + var(--tab-bar-gap)));
+  height: calc(var(--tab-bar-h) + var(--tab-bar-gap) + var(--safe-bottom) + 28px);
+  background: linear-gradient(to top, var(--bg) 42%, color-mix(in srgb, var(--bg) 70%, transparent) 72%, transparent);
+  pointer-events: none;
+}
 
 .tab-bar {
   display: flex;

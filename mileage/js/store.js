@@ -13,6 +13,15 @@ export const PURPOSES = [
   { id: 'charity', label: 'Charity', deductible: true },
 ];
 export const PURPOSE_IDS = PURPOSES.map((p) => p.id);
+
+/** Suggested purpose details per category. Pub 463 asks for the business purpose of each trip,
+    so the category alone is not enough; users can add their own and they are remembered. */
+export const PURPOSE_DETAILS = {
+  business: ['Client visit', 'Between offices', 'Meeting', 'Errand or supplies', 'Temporary site', 'Airport or travel'],
+  personal: [],
+  medical: ['Appointment', 'Treatment', 'Pharmacy'],
+  charity: ['Volunteer shift', 'Donation drop-off'],
+};
 export function purposeLabel(id) { return (PURPOSES.find((p) => p.id === id) || PURPOSES[0]).label; }
 
 // IRS standard mileage rates, cents per mile, by effective date (the IRS changed rates mid-year in 2026).
@@ -34,6 +43,7 @@ function defaultState() {
       defaultVehicleId: null,
       rates: structuredClone(DEFAULT_RATES),
       theme: 'system',
+      customDetails: {},
       onboarded: false,
       migratedLegacy: false,
       createdAt: new Date().toISOString(),
@@ -69,6 +79,7 @@ function normalize(s) {
   const out = { ...base, ...s };
   out.settings = { ...base.settings, ...(s.settings || {}) };
   out.settings.rates = normalizeRates(s.settings?.rates);
+  out.settings.customDetails = (s.settings && typeof s.settings.customDetails === 'object' && s.settings.customDetails) || {};
   out.vehicles = Array.isArray(s.vehicles) ? s.vehicles : [];
   out.routes = Array.isArray(s.routes) ? s.routes : [];
   out.trips = Array.isArray(s.trips) ? s.trips : [];
@@ -199,6 +210,26 @@ export const store = {
       total never shifts when the display unit changes. */
   tripValue(trip) {
     return round((Number(trip.distanceMi) || 0) * this._rawRate(trip.date, trip.purpose) / 100, 2);
+  },
+
+  // ---- purpose details
+  detailsFor(purpose) {
+    const custom = (load().settings.customDetails || {})[purpose] || [];
+    return [...custom, ...(PURPOSE_DETAILS[purpose] || [])];
+  },
+  addDetail(purpose, text) {
+    const t = String(text || '').trim().slice(0, 60);
+    if (!t) return null;
+    const s = load();
+    const builtin = PURPOSE_DETAILS[purpose] || [];
+    if (builtin.some((d) => d.toLowerCase() === t.toLowerCase())) return t;
+    const bag = s.settings.customDetails[purpose] || (s.settings.customDetails[purpose] = []);
+    const existing = bag.findIndex((d) => d.toLowerCase() === t.toLowerCase());
+    if (existing >= 0) bag.splice(existing, 1);
+    bag.unshift(t);
+    bag.splice(8);
+    commit({ type: 'settings' });
+    return t;
   },
 
   // ---- vehicles
@@ -357,16 +388,17 @@ export const store = {
     if (!f || !t) return null;
     return load().routes.find((r) => norm(r.from) === f && norm(r.to) === t) || null;
   },
-  saveRoute({ from, to, distanceMi, purpose = 'business' }) {
+  saveRoute({ from, to, distanceMi, purpose = 'business', detail = '' }) {
     const s = load();
     const existing = this.findRoute(from, to);
     if (existing) {
       existing.distanceMi = Number(distanceMi) || existing.distanceMi;
       existing.purpose = purpose || existing.purpose;
+      if (detail) existing.detail = detail;
       commit({ type: 'routes' });
       return existing;
     }
-    const r = { id: uid(), from: String(from).trim(), to: String(to).trim(), distanceMi: Number(distanceMi) || 0, purpose, useCount: 0, lastUsed: null, createdAt: new Date().toISOString() };
+    const r = { id: uid(), from: String(from).trim(), to: String(to).trim(), distanceMi: Number(distanceMi) || 0, purpose, detail: String(detail || '').trim(), useCount: 0, lastUsed: null, createdAt: new Date().toISOString() };
     s.routes.push(r);
     commit({ type: 'routes' });
     return r;
@@ -415,9 +447,9 @@ export const store = {
   // ---- export / import
   csv(trips) {
     const units = this.units();
-    const head = ['Date', 'From', 'To', 'Purpose', `Distance (${units})`, `Rate (cents per ${units === 'km' ? 'km' : 'mile'})`, 'Value (USD)', 'Vehicle', 'Round trip', 'Odometer start', 'Odometer end', 'Notes'];
+    const head = ['Date', 'From', 'To', 'Purpose', 'Purpose detail', `Distance (${units})`, `Rate (cents per ${units === 'km' ? 'km' : 'mile'})`, 'Value (USD)', 'Vehicle', 'Round trip', 'Odometer start', 'Odometer end', 'Notes'];
     const rows = trips.slice().sort(byDateAsc).map((t) => [
-      t.date, t.from, t.to, purposeLabel(t.purpose),
+      t.date, t.from, t.to, purposeLabel(t.purpose), t.detail || '',
       fmtDistance(t.distanceMi, units, { unit: false, max: 1 }).replace(/,/g, ''),
       this.rateFor(t.date, t.purpose), this.tripValue(t).toFixed(2),
       this.vehicle(t.vehicleId)?.name || '', t.roundTrip ? 'Yes' : 'No',
@@ -537,6 +569,7 @@ function cleanTrip(input, api) {
   t.odoStart = num(t.odoStart);
   t.odoEnd = num(t.odoEnd);
   t.notes = String(t.notes || '').trim().slice(0, 500);
+  t.detail = String(t.detail || '').trim().slice(0, 60);
   t.routeId = t.routeId || null;
   let mi = num(t.distanceMi);
   if (mi == null && t.distance != null) mi = api.fromDisplay(num(t.distance));

@@ -38,6 +38,7 @@ export function mount(root, ctx) {
     date: isValidISODate(str(src.date)) ? str(src.date).slice(0, 10) : todayISO(),
     vehicleId: (vehicles.find((v) => v.id === src.vehicleId) || defaultVehicle || {}).id || null,
     notes: str(src.notes),
+    detail: str(src.detail),
     saveRoute: true,
   };
   const hasOdo = src.odoStart != null && src.odoEnd != null;
@@ -59,12 +60,12 @@ export function mount(root, ctx) {
   root.innerHTML = template();
   const $ = (sel) => root.querySelector(sel);
   const el = {
-    form: $('.entry'), cancel: $('#e-cancel'), quick: $('.quick'), chipRow: $('.chip-row'), chips: [],
+    form: $('.entry'), cancel: $('#e-cancel'), quick: $('.quick'), chipRow: $('.quick .chip-row'), chips: [],
     hero: $('.hero'), grow: $('.hero-grow'), distance: $('#e-distance'), derived: $('#e-derived'), unit: $('#e-unit'),
     roundRow: $('#e-round-row'), round: $('#e-round'), roundHint: $('#e-round-hint'),
     odo: $('#e-odo'), odoStart: $('#e-odo-start'), odoEnd: $('#e-odo-end'), odoNote: $('#e-odo-note'), mode: $('#e-mode'),
     from: $('#e-from'), to: $('#e-to'), swap: $('#e-swap'), places: $('#e-places'),
-    rate: $('#e-rate'), date: $('#e-date'), dateDisplay: $('#e-date-display'), vehicle: $('#e-vehicle'), notes: $('#e-notes'),
+    rate: $('#e-rate'), detailRow: $('#e-detail-row'), detailChips: $('#e-detail-chips'), detailCustom: $('#e-detail-custom'), detailInput: $('#e-detail-input'), detailAdd: $('#e-detail-add'), date: $('#e-date'), dateDisplay: $('#e-date-display'), vehicle: $('#e-vehicle'), notes: $('#e-notes'),
     saveRouteRow: $('#e-save-route'), saveRouteSwitch: $('#e-save-route-switch'),
     del: $('#e-delete'), error: $('#e-error'), save: $('#e-save'),
   };
@@ -75,6 +76,7 @@ export function mount(root, ctx) {
   el.from.value = st.from; el.to.value = st.to;
   el.notes.value = st.notes;
   renderPlaces();
+  renderDetails();
   renderChips();
   update();
   growNotes();
@@ -136,7 +138,12 @@ export function mount(root, ctx) {
   });
 
   el.form.addEventListener('change', (e) => {
-    if (e.target && e.target.name === 'purpose' && e.target.checked) { st.purpose = e.target.value; update(); }
+    if (e.target && e.target.name === 'purpose' && e.target.checked) {
+      st.purpose = e.target.value;
+      if (st.detail && !store.detailsFor(st.purpose).includes(st.detail)) st.detail = '';
+      renderDetails();
+      update();
+    }
   });
   el.date.addEventListener('input', onDate);
   el.date.addEventListener('change', onDate);
@@ -146,6 +153,22 @@ export function mount(root, ctx) {
     update();
   });
   el.notes.addEventListener('input', () => { st.notes = el.notes.value; growNotes(); });
+
+  el.detailChips.addEventListener('click', (e) => {
+    const b = e.target.closest('.chip');
+    if (!b) return;
+    if (b.dataset.act === 'custom') {
+      el.detailCustom.hidden = false;
+      el.detailInput.value = '';
+      el.detailInput.focus();
+      return;
+    }
+    st.detail = b.dataset.detail === st.detail ? '' : b.dataset.detail;
+    app.haptic();
+    renderDetails();
+  });
+  el.detailAdd.addEventListener('click', commitCustomDetail);
+  el.detailInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); commitCustomDetail(); } });
   if (el.saveRouteSwitch) el.saveRouteSwitch.addEventListener('change', () => { st.saveRoute = el.saveRouteSwitch.checked; });
   if (el.chipRow) el.chipRow.addEventListener('click', (e) => { const b = e.target.closest('.chip'); if (b) pickChip(b); });
 
@@ -196,8 +219,8 @@ export function mount(root, ctx) {
           <label class="switch"><input type="checkbox" role="switch" id="e-round" aria-labelledby="e-round-label"><span class="switch-track"></span></label>
         </div>
         <div class="odo" id="e-odo" hidden>
-          <label class="field"><span class="field-label">Start odometer</span><input class="field-input num" id="e-odo-start" type="text" inputmode="decimal" placeholder="Required" maxlength="10" autocomplete="off" enterkeyhint="next"></label>
-          <label class="field"><span class="field-label">End odometer</span><input class="field-input num" id="e-odo-end" type="text" inputmode="decimal" placeholder="Required" maxlength="10" autocomplete="off" enterkeyhint="done"></label>
+          <label class="field"><span class="field-label">Start odometer</span><input class="field-input num" id="e-odo-start" type="text" inputmode="decimal" placeholder="Start reading" maxlength="10" autocomplete="off" enterkeyhint="next"></label>
+          <label class="field"><span class="field-label">End odometer</span><input class="field-input num" id="e-odo-end" type="text" inputmode="decimal" placeholder="End reading" maxlength="10" autocomplete="off" enterkeyhint="done"></label>
           <p class="odo-note error-text" id="e-odo-note" hidden></p>
         </div>
         <button class="mode-toggle" type="button" id="e-mode">Use odometer</button>
@@ -213,6 +236,13 @@ export function mount(root, ctx) {
       <div class="list purpose-list">
         <div class="segmented lg" role="radiogroup" aria-label="Purpose">
           ${PURPOSES.map((p) => `<label class="seg"><input type="radio" name="purpose" value="${p.id}"${p.id === st.purpose ? ' checked' : ''}><span>${escapeHtml(p.label)}</span></label>`).join('')}
+        </div>
+      </div>
+      <div class="detail-row" id="e-detail-row" hidden>
+        <div class="chip-row detail-chips" id="e-detail-chips" role="group" aria-label="Purpose detail"></div>
+        <div class="detail-custom" id="e-detail-custom" hidden>
+          <input class="input-box" id="e-detail-input" type="text" maxlength="60" placeholder="What was this trip for?" autocapitalize="sentences" enterkeyhint="done" aria-label="Purpose detail">
+          <button class="btn btn-sm btn-secondary" type="button" id="e-detail-add">Add</button>
         </div>
       </div>
       <p class="section-footer" id="e-rate"></p>
@@ -378,6 +408,27 @@ export function mount(root, ctx) {
     if (focus) primaryInput().focus();
   }
 
+  function renderDetails() {
+    const list = store.detailsFor(st.purpose);
+    if (!list.length) { el.detailRow.hidden = true; el.detailCustom.hidden = true; return; }
+    el.detailRow.hidden = false;
+    const chips = list.map((d) => {
+      const sel = d === st.detail;
+      return `<button class="chip detail-chip${sel ? ' is-selected' : ''}" type="button" data-detail="${escapeHtml(d)}" aria-pressed="${sel}">${sel ? icon('check', { size: 15 }) : ''}<span>${escapeHtml(d)}</span></button>`;
+    });
+    chips.push(`<button class="chip detail-chip is-add" type="button" data-act="custom" aria-label="Add your own purpose">${icon('plus', { size: 15 })}<span>Other</span></button>`);
+    el.detailChips.innerHTML = chips.join('');
+  }
+
+  function commitCustomDetail() {
+    const added = store.addDetail(st.purpose, el.detailInput.value);
+    if (added) st.detail = added;
+    el.detailCustom.hidden = true;
+    el.detailInput.value = '';
+    renderDetails();
+    update();
+  }
+
   function renderPlaces() {
     el.places.innerHTML = store.places().slice(0, MAX_PLACES).map((p) => `<option value="${escapeHtml(p)}"></option>`).join('');
   }
@@ -390,18 +441,18 @@ export function mount(root, ctx) {
   }
 
   function renderChips() {
-    if (!el.chipRow) return;
+    if (!el.chipRow || !el.quick) return;
     const { routes, recent } = store.suggestions(8);
     const trips = store.trips();
     const list = [];
     for (const r of routes) {
       const k = key(r.from, r.to);
       const last = trips.find((t) => t.routeId === r.id || key(t.from, t.to) === k);
-      list.push({ key: k, kind: 'route', from: r.from, to: r.to, distanceMi: r.distanceMi, purpose: r.purpose,
+      list.push({ key: k, kind: 'route', from: r.from, to: r.to, distanceMi: r.distanceMi, purpose: r.purpose, detail: r.detail || (last ? last.detail : ''),
         roundTrip: last ? !!last.roundTrip : undefined, vehicleId: last ? last.vehicleId || null : null });
     }
     for (const t of recent) {
-      list.push({ key: key(t.from, t.to), kind: 'recent', from: t.from, to: t.to, distanceMi: t.distanceMi, purpose: t.purpose,
+      list.push({ key: key(t.from, t.to), kind: 'recent', from: t.from, to: t.to, distanceMi: t.distanceMi, purpose: t.purpose, detail: t.detail || '',
         roundTrip: !!t.roundTrip, vehicleId: t.vehicleId || null });
     }
     suggestions = new Map(list.map((s) => [s.key, s]));
@@ -427,6 +478,8 @@ export function mount(root, ctx) {
     st.from = s.from; st.to = s.to;
     el.from.value = s.from; el.to.value = s.to;
     if (PURPOSE_IDS.includes(s.purpose)) { st.purpose = s.purpose; setRadio(s.purpose); }
+    st.detail = s.detail && store.detailsFor(st.purpose).includes(s.detail) ? s.detail : '';
+    renderDetails();
     if (s.vehicleId && el.vehicle && vehicles.some((v) => v.id === s.vehicleId)) { st.vehicleId = s.vehicleId; el.vehicle.value = s.vehicleId; }
     if (s.roundTrip != null) { st.roundTrip = s.roundTrip; el.round.checked = s.roundTrip; }
     const oneWay = store.toDisplay(s.distanceMi) / (s.kind === 'recent' && s.roundTrip ? 2 : 1);
@@ -452,13 +505,13 @@ export function mount(root, ctx) {
     saving = true;
     try {
       if (isNew && st.saveRoute && from && to && !routeId) {
-        createdRoute = store.saveRoute({ from, to, distanceMi: round3(totalMi / (st.roundTrip ? 2 : 1)), purpose: st.purpose });
+        createdRoute = store.saveRoute({ from, to, distanceMi: round3(totalMi / (st.roundTrip ? 2 : 1)), purpose: st.purpose, detail: st.detail });
         routeId = createdRoute.id;
       }
       const data = {
         date: st.date, from, to, distanceMi: totalMi, purpose: st.purpose, vehicleId: st.vehicleId, roundTrip: st.roundTrip,
         odoStart: odo ? parseDecimal(st.odoStart) : null, odoEnd: odo ? parseDecimal(st.odoEnd) : null,
-        notes: st.notes, routeId,
+        notes: st.notes, detail: st.detail, routeId,
       };
       if (isNew) store.addTrip(data); else store.updateTrip(rawId, data);
     } catch (err) {

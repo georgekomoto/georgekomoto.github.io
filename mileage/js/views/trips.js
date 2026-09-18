@@ -11,6 +11,7 @@ const ARROW = `<span class="arrow" aria-hidden="true">${THIN}\u2192${THIN}</span
 
 // Selected month lives at module level so it survives re-renders and tab switches.
 let selected = null;
+let filter = null;   // purpose id, or null for every trip
 
 function monthOf(iso) { return { year: Number(String(iso).slice(0, 4)), month: Number(String(iso).slice(5, 7)) }; }
 function ord(m) { return m.year * 12 + m.month; }
@@ -100,7 +101,10 @@ export function mount(root, ctx) {
           <p class="month-value${sum.value > 0 ? '' : ' is-zero'}">${fmtMoney(sum.value)} deduction</p>
         </div>
         ${segs.length ? `<div class="purpose-bar" aria-hidden="true">${segs.map((p) => `<span class="purpose-seg ${p}" style="flex-grow:${Number(sum.byPurpose[p].distanceMi) || 0}"></span>`).join('')}</div>` : ''}
-        ${segs.length ? `<ul class="purpose-legend">${segs.map((p) => `<li><span class="dot ${p}" aria-hidden="true"></span>${escapeHtml(purposeLabel(p))}<span class="legend-mi">${fmtDistance(sum.byPurpose[p].distanceMi, units)}</span></li>`).join('')}</ul>` : ''}
+        ${segs.length ? `<ul class="purpose-legend">${segs.map((p) => {
+          const on = filter === p;
+          return `<li><button class="legend-btn${on ? ' is-on' : ''}" type="button" data-act="filter" data-purpose="${p}" aria-pressed="${on}" aria-label="${escapeHtml(`${on ? 'Clear the' : 'Show only'} ${purposeLabel(p).toLowerCase()} filter`)}"><span class="dot ${p}" aria-hidden="true"></span><span class="legend-name">${escapeHtml(purposeLabel(p))}</span><span class="legend-mi">${fmtDistance(sum.byPurpose[p].distanceMi, units)}</span></button></li>`;
+        }).join('')}</ul>` : ''}
         <p class="month-foot">${selected.year} ${yearWord} \u00b7 ${fmtDistance(ytd.distanceMi, units, { max: 1 })} \u00b7 ${fmtMoney(ytd.value)}</p>
       </section>`;
   }
@@ -122,10 +126,10 @@ export function mount(root, ctx) {
     const personal = t.purpose === 'personal';
     const value = store.tripValue(t);
     const title = tripTitle(t);
-    const sub = [purposeLabel(t.purpose)];
+    const sub = [t.detail || purposeLabel(t.purpose)];
     if (vehicle) sub.push(vehicle.name);
     if (t.roundTrip) sub.push('Round trip');
-    const aria = [title.text, distanceWords(t.distanceMi, units), purposeLabel(t.purpose).toLowerCase()];
+    const aria = [title.text, distanceWords(t.distanceMi, units), t.detail ? `${purposeLabel(t.purpose).toLowerCase()}, ${t.detail}` : purposeLabel(t.purpose).toLowerCase()];
     if (t.roundTrip) aria.push('round trip');
     if (!personal) aria.push(fmtMoney(value));
     aria.push(fmtDayHeading(t.date));
@@ -208,9 +212,13 @@ export function mount(root, ctx) {
       html += emptyStateHtml();
     } else {
       const trips = store.tripsForMonth(selected.year, selected.month);
+      if (filter && !trips.some((t) => t.purpose === filter)) filter = null;
+      const shown = filter ? trips.filter((t) => t.purpose === filter) : trips;
       html += monthCardHtml(trips, units, b);
-      html += quickLogHtml(units);
-      html += trips.length ? listHtml(trips, units) : monthEmptyHtml();
+      html += filter ? '' : quickLogHtml(units);
+      html += trips.length
+        ? (shown.length ? listHtml(shown, units) : `<div class="card month-empty"><p class="muted">No ${escapeHtml(purposeLabel(filter).toLowerCase())} trips this month.</p><button class="btn btn-plain" type="button" data-act="filter" data-purpose="${escapeHtml(filter)}">Show all trips</button></div>`)
+        : monthEmptyHtml();
     }
     html += '<p class="sr-only" aria-live="polite" data-live></p></div>';
     root.innerHTML = html;
@@ -268,10 +276,19 @@ export function mount(root, ctx) {
       case 'open': app.openTrip(btn.dataset.id); break;
       case 'quick': {
         const r = store.route(btn.dataset.route);
-        if (r) app.openTrip('new', { from: r.from, to: r.to, distanceMi: r.distanceMi, purpose: r.purpose, routeId: r.id });
+        if (r) app.openTrip('new', { from: r.from, to: r.to, distanceMi: r.distanceMi, purpose: r.purpose, detail: r.detail || '', routeId: r.id });
         break;
       }
       case 'new': app.openTrip('new'); break;
+      case 'filter': {
+        const p = btn.dataset.purpose;
+        filter = filter === p ? null : p;
+        app.haptic();
+        render();
+        const live = root.querySelector('[data-live]');
+        if (live) live.textContent = filter ? `Showing ${purposeLabel(filter).toLowerCase()} trips only` : 'Showing all trips';
+        break;
+      }
       default: break;
     }
   }
