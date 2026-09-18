@@ -1,310 +1,315 @@
-import { list, get, put, remove, getMeta, byIndex, childrenOf, saveTripAndUpdateVehicle } from '../db.js';
-import { escapeHtml, formatDate, formatDateInput, formatDistance, todayInput } from '../util/formatters.js';
-import { objectUrl, revokeUrls, addAttachment, deleteAttachment } from '../util/media.js';
+// Trips — the home tab. Month summary card, quick-log chips for saved routes,
+// and the month's trips grouped by day. Re-renders on store changes.
 
-let mountedUrls = [];
+import { escapeHtml, fmtDistance, fmtMoney, fmtTime, fmtDayHeading, fmtMonthYear, addMonths, todayISO } from '../format.js';
+import { purposeLabel } from '../store.js';
 
-export async function renderList(root) {
-  const [trips, vehicles, clients, defaultUnits] = await Promise.all([
-    list('trips'),
-    list('vehicles'),
-    list('clients'),
-    getMeta('units', 'mi'),
-  ]);
-  const vMap = new Map(vehicles.map((v) => [v.id, v]));
-  const cMap = new Map(clients.map((c) => [c.id, c]));
-  const sorted = trips.slice().sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+// Deductible purposes first; personal is the non-deductible remainder.
+const BAR_ORDER = ['business', 'medical', 'charity', 'personal'];
+const THIN = '\u2009';
+const ARROW = `<span class="arrow" aria-hidden="true">${THIN}\u2192${THIN}</span>`;
 
-  root.innerHTML = `
-    <section class="view">
-      <header class="view-header">
-        <h2>Trips</h2>
-        <a class="btn btn-primary" href="#/trips/new">Log trip</a>
-      </header>
-      ${sorted.length === 0
-        ? `<p class="muted">No trips yet.</p>`
-        : `<ul class="list">
-            ${sorted.map((t) => {
-              const v = vMap.get(t.vehicleId);
-              const units = (v && v.units) || defaultUnits;
-              const c = t.clientId ? cMap.get(t.clientId) : null;
-              return `
-                <li>
-                  <a href="#/trips/${t.id}">
-                    <div class="list-title">${escapeHtml(t.purpose || 'Trip')}</div>
-                    <div class="list-sub">
-                      ${formatDate(t.date)} · ${escapeHtml((v && v.name) || '—')} · ${formatDistance(t.distance, units)}
-                      ${c ? ` · ${escapeHtml(c.name)}` : ''}
-                    </div>
-                  </a>
-                </li>`;
-            }).join('')}
-          </ul>`
-      }
-    </section>
-  `;
-}
+// Selected month lives at module level so it survives re-renders and tab switches.
+let selected = null;
+let filter = null;   // purpose id, or null for every trip
 
-export async function renderForm(root, id) {
-  const existing = id ? await get('trips', id) : null;
-  const [vehicles, clients, events] = await Promise.all([
-    list('vehicles'),
-    list('clients'),
-    list('events'),
-  ]);
-  const activeVehicles = vehicles.filter((v) => !v.archived);
-  if (activeVehicles.length === 0) {
-    root.innerHTML = `
-      <section class="view">
-        <header class="view-header"><h2>New trip</h2></header>
-        <p>You need a vehicle first. <a href="#/vehicles/new">Add a vehicle</a>.</p>
-      </section>`;
-    return;
-  }
+function monthOf(iso) { return { year: Number(String(iso).slice(0, 4)), month: Number(String(iso).slice(5, 7)) }; }
+function ord(m) { return m.year * 12 + m.month; }
+function currentMonth() { return monthOf(todayISO()); }
+function cssEscape(s) { return (globalThis.CSS && CSS.escape) ? CSS.escape(s) : String(s).replace(/["\\]/g, '\\$&'); }
 
-  const defaultVehicleId = await getMeta('defaultVehicleId', activeVehicles[0].id);
-  const t = existing || {
-    id: '',
-    vehicleId: defaultVehicleId || activeVehicles[0].id,
-    date: todayInput(),
-    startOdometer: '',
-    endOdometer: '',
-    purpose: '',
-    clientId: '',
-    eventId: '',
-    notes: '',
-  };
+export function mount(root, ctx) {
+  const { store, app, icon } = ctx;
+  let alive = true;
+  let queued = false;
+  let tripOps = [];
 
-  // Autofill startOdometer from the most recent trip's end odometer for this
-  // vehicle. Falls back to vehicle.currentOdometer if no prior trip has one.
-  if (!existing) {
-    t.startOdometer = await suggestedStartOdometer(t.vehicleId, activeVehicles);
-  }
+  // ---------------------------------------------------------------- data helpers
 
-  root.innerHTML = `
-    <section class="view">
-      <header class="view-header">
-        <h2>${id ? 'Edit trip' : 'New trip'}</h2>
-      </header>
-      <form class="form" id="trip-form">
-        <label>Vehicle
-          <select name="vehicleId" required>
-            ${activeVehicles.map((v) => `
-              <option value="${v.id}" ${v.id === t.vehicleId ? 'selected' : ''}>${escapeHtml(v.name || v.plate || 'Vehicle')}</option>
-            `).join('')}
-          </select>
-        </label>
-        <div class="row-2">
-          <label>Date<input name="date" type="date" value="${escapeHtml(formatDateInput(t.date))}" required></label>
-          <label>Purpose<input name="purpose" value="${escapeHtml(t.purpose)}" placeholder="e.g. Site visit"></label>
-        </div>
-        <div class="row-2">
-          <label>Start odometer<input name="startOdometer" type="number" inputmode="decimal" step="0.1" value="${escapeHtml(t.startOdometer)}"></label>
-          <label>End odometer<input name="endOdometer" type="number" inputmode="decimal" step="0.1" value="${escapeHtml(t.endOdometer)}"></label>
-        </div>
-        <div class="row-2">
-          <label>Client
-            <select name="clientId">
-              <option value="">—</option>
-              ${clients.filter((c) => !c.archived).map((c) => `
-                <option value="${c.id}" ${c.id === t.clientId ? 'selected' : ''}>${escapeHtml(c.name)}</option>
-              `).join('')}
-            </select>
-          </label>
-          <label>Event
-            <select name="eventId">
-              <option value="">—</option>
-              ${events.map((ev) => `
-                <option value="${ev.id}" ${ev.id === t.eventId ? 'selected' : ''}>${escapeHtml(ev.name)}</option>
-              `).join('')}
-            </select>
-          </label>
-        </div>
-        <label>Notes<textarea name="notes" rows="3">${escapeHtml(t.notes)}</textarea></label>
-        <div class="form-actions">
-          <button type="submit" class="btn btn-primary">Save</button>
-          <a class="btn" href="#/trips">Cancel</a>
-          ${id ? `<button type="button" class="btn btn-danger" id="delete-btn">Delete</button>` : ''}
-        </div>
-      </form>
-    </section>
-  `;
-
-  // When vehicle changes on a new trip, refetch the prior trip's end odometer
-  const form = root.querySelector('#trip-form');
-  if (!existing) {
-    form.vehicleId.addEventListener('change', async () => {
-      const value = await suggestedStartOdometer(form.vehicleId.value, activeVehicles);
-      form.startOdometer.value = value ?? '';
-    });
-  }
-
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const data = Object.fromEntries(new FormData(form).entries());
-    const start = data.startOdometer !== '' ? Number(data.startOdometer) : null;
-    const end = data.endOdometer !== '' ? Number(data.endOdometer) : null;
-    if (start != null && end != null && end < start) {
-      alert('End odometer must be greater than or equal to start odometer.');
-      return;
-    }
-    const record = {
-      ...(existing || {}),
-      vehicleId: data.vehicleId,
-      date: data.date,
-      purpose: data.purpose || '',
-      startOdometer: start,
-      endOdometer: end,
-      clientId: data.clientId || null,
-      eventId: data.eventId || null,
-      notes: data.notes || '',
+  /** Navigable range: from the earliest month with trips (or now) up to the current month (or a later month that has trips). */
+  function bounds() {
+    const now = currentMonth();
+    const months = store.monthsWithTrips();
+    const newest = months[0], oldest = months[months.length - 1];
+    return {
+      min: oldest && ord(oldest) < ord(now) ? { year: oldest.year, month: oldest.month } : now,
+      max: newest && ord(newest) > ord(now) ? { year: newest.year, month: newest.month } : now,
     };
-    const saved = await saveTripAndUpdateVehicle(record);
-    location.hash = `#/trips/${saved.id}`;
-  });
-
-  const del = root.querySelector('#delete-btn');
-  if (del) {
-    del.addEventListener('click', async () => {
-      if (!confirm('Delete this trip? Attached expenses will remain but be orphaned.')) return;
-      await remove('trips', id);
-      location.hash = '#/trips';
-    });
   }
-}
 
-async function suggestedStartOdometer(vehicleId, activeVehicles) {
-  const trips = await byIndex('trips', 'vehicleId', vehicleId);
-  const completed = trips.filter((t) => t.endOdometer != null && t.endOdometer !== '');
-  if (completed.length > 0) {
-    completed.sort((a, b) => {
-      const d = (b.date || '').localeCompare(a.date || '');
-      return d !== 0 ? d : (b.createdAt || '').localeCompare(a.createdAt || '');
-    });
-    return completed[0].endOdometer;
+  function clampSelected(b) {
+    if (!selected) selected = currentMonth();
+    if (ord(selected) < ord(b.min)) selected = { ...b.min };
+    if (ord(selected) > ord(b.max)) selected = { ...b.max };
   }
-  const v = activeVehicles.find((x) => x.id === vehicleId);
-  return v && v.currentOdometer != null ? v.currentOdometer : '';
-}
 
-export async function renderDetail(root, id) {
-  revokeUrls(mountedUrls);
-  mountedUrls = [];
-
-  const trip = await get('trips', id);
-  if (!trip) {
-    root.innerHTML = `<section class="view"><p>Trip not found. <a href="#/trips">Back</a></p></section>`;
-    return;
+  function distanceWords(mi, units) {
+    const v = fmtDistance(mi, units, { unit: false });
+    const one = v === '1';
+    return `${v} ${units === 'km' ? (one ? 'kilometer' : 'kilometers') : (one ? 'mile' : 'miles')}`;
   }
-  const [vehicle, client, event, expenses, attachments, comments, defaultUnits] = await Promise.all([
-    get('vehicles', trip.vehicleId),
-    trip.clientId ? get('clients', trip.clientId) : null,
-    trip.eventId ? get('events', trip.eventId) : null,
-    byIndex('expenses', 'tripId', trip.id),
-    childrenOf('attachments', 'trip', trip.id),
-    childrenOf('comments', 'trip', trip.id),
-    getMeta('units', 'mi'),
-  ]);
-  const units = (vehicle && vehicle.units) || defaultUnits;
 
-  root.innerHTML = `
-    <section class="view">
-      <header class="view-header">
-        <h2>${escapeHtml(trip.purpose || 'Trip')}</h2>
-        <a class="btn" href="#/trips/${id}/edit">Edit</a>
-      </header>
+  /** Title for a trip row: "From → To", falling back to notes, then "<Purpose> trip". */
+  function tripTitle(t) {
+    const from = String(t.from || '').trim();
+    const to = String(t.to || '').trim();
+    if (from && to) return { html: `${escapeHtml(from)}${ARROW}${escapeHtml(to)}`, text: `${from} to ${to}` };
+    if (from) return { html: `${escapeHtml(from)}${ARROW}`, text: `from ${from}` };
+    if (to) return { html: `${ARROW}${escapeHtml(to)}`, text: `to ${to}` };
+    const notes = String(t.notes || '').trim();
+    if (notes) return { html: escapeHtml(notes), text: notes };
+    const s = `${purposeLabel(t.purpose)} trip`;
+    return { html: escapeHtml(s), text: s };
+  }
 
-      <dl class="details">
-        <dt>Date</dt><dd>${formatDate(trip.date)}</dd>
-        <dt>Vehicle</dt><dd>${vehicle ? `<a href="#/vehicles/${vehicle.id}">${escapeHtml(vehicle.name || 'Vehicle')}</a>` : '—'}</dd>
-        <dt>Client</dt><dd>${client ? `<a href="#/clients/${client.id}">${escapeHtml(client.name)}</a>` : '—'}</dd>
-        <dt>Event</dt><dd>${event ? escapeHtml(event.name) : '—'}</dd>
-        <dt>Start odometer</dt><dd>${formatDistance(trip.startOdometer, units)}</dd>
-        <dt>End odometer</dt><dd>${trip.endOdometer != null ? formatDistance(trip.endOdometer, units) : '<em>in progress</em>'}</dd>
-        <dt>Distance</dt><dd>${formatDistance(trip.distance, units)}</dd>
-        ${trip.notes ? `<dt>Notes</dt><dd>${escapeHtml(trip.notes).replace(/\n/g, '<br>')}</dd>` : ''}
-      </dl>
+  /** Chip labels: drop " · qualifier" / ", city" suffixes when every chip stays distinct, then cut each side at a word boundary. */
+  function chipLabels(routes) {
+    const SEP = /\s[·•|–—-]\s|,\s/;
+    const head = (s) => { const h = String(s || '').split(SEP)[0].trim(); return h || String(s || '').trim(); };
+    const cut = (s, max = 14) => {
+      s = String(s || '').trim();
+      if (s.length <= max) return s;
+      let acc = '';
+      for (const w of s.split(/\s+/)) { const next = acc ? `${acc} ${w}` : w; if (next.length > max - 1) break; acc = next; }
+      if (!acc) acc = s.slice(0, max - 1);
+      return `${acc.replace(/[\s·•,|–—-]+$/, '')}…`;
+    };
+    const brief = routes.map((r) => `${head(r.from)} → ${head(r.to)}`);
+    const pick = new Set(brief).size === brief.length ? (r) => [head(r.from), head(r.to)] : (r) => [r.from, r.to];
+    return routes.map((r) => pick(r).map((x) => cut(x)).join(' → '));
+  }
 
-      <h3>Expenses</h3>
-      ${expenses.length === 0
-        ? `<p class="muted">No expenses attached. <a href="#/expenses/new?tripId=${trip.id}">Add one</a>.</p>`
-        : `<ul class="list">
-            ${expenses.map((ex) => `
-              <li>
-                <a href="#/expenses/${ex.id}">
-                  <div class="list-title">${escapeHtml(ex.type || '')} · ${Number(ex.amount || 0).toFixed(2)}</div>
-                  <div class="list-sub">${formatDate(ex.date)}${ex.vendor ? ' · ' + escapeHtml(ex.vendor) : ''}</div>
-                </a>
-              </li>`).join('')}
-          </ul>
-          <a class="btn" href="#/expenses/new?tripId=${trip.id}">Add expense</a>`
+  // ---------------------------------------------------------------- templates
+
+  function monthCardHtml(trips, units, b) {
+    const sum = store.summarize(trips);
+    const ytd = store.summarize(store.tripsForYear(selected.year));
+    const cur = currentMonth();
+    const prevOff = ord(selected) <= ord(b.min);
+    const nextOff = ord(selected) >= ord(b.max);
+    const segs = BAR_ORDER.filter((p) => sum.byPurpose[p] && sum.byPurpose[p].distanceMi > 0);
+    const yearWord = selected.year < cur.year ? 'total' : 'so far';
+    return `
+      <section class="card month-card" aria-labelledby="month-label">
+        <div class="month-nav">
+          <button class="month-nav-btn" type="button" data-act="prev-month" aria-label="Previous month"${prevOff ? ' disabled aria-disabled="true"' : ''}>${icon('chevronLeft', { size: 20, stroke: 2.4 })}</button>
+          <h2 class="month-nav-label" id="month-label">${escapeHtml(fmtMonthYear(selected.year, selected.month))}</h2>
+          <button class="month-nav-btn" type="button" data-act="next-month" aria-label="Next month"${nextOff ? ' disabled aria-disabled="true"' : ''}>${icon('chevronRight', { size: 20, stroke: 2.4 })}</button>
+        </div>
+        <div class="month-hero">
+          <p class="month-distance"><span class="month-distance-value">${fmtDistance(sum.distanceMi, units, { unit: false })}</span><span class="month-distance-unit"> ${units}</span></p>
+          <p class="month-value${sum.total > 0 ? '' : ' is-zero'}">${fmtMoney(sum.total)} deduction</p>
+        </div>
+        ${segs.length ? `<div class="purpose-bar" aria-hidden="true">${segs.map((p) => `<span class="purpose-seg ${p}" style="flex-grow:${Number(sum.byPurpose[p].distanceMi) || 0}"></span>`).join('')}</div>` : ''}
+        ${segs.length ? `<ul class="purpose-legend">${segs.map((p) => {
+          const on = filter === p;
+          return `<li><button class="legend-btn${on ? ' is-on' : ''}" type="button" data-act="filter" data-purpose="${p}" aria-pressed="${on}" aria-label="${escapeHtml(`${on ? 'Clear the' : 'Show only'} ${purposeLabel(p).toLowerCase()} filter`)}"><span class="dot ${p}" aria-hidden="true"></span><span class="legend-name">${escapeHtml(purposeLabel(p))}</span><span class="legend-mi">${fmtDistance(sum.byPurpose[p].distanceMi, units)}</span></button></li>`;
+        }).join('')}</ul>` : ''}
+        <p class="month-foot">${selected.year} ${yearWord} \u00b7 ${fmtDistance(ytd.distanceMi, units, { max: 1 })} \u00b7 ${fmtMoney(ytd.total)}</p>
+      </section>`;
+  }
+
+  function quickLogHtml(units) {
+    const routes = store.suggestions(4).routes;
+    if (!routes.length) return '';
+    const labels = chipLabels(routes);
+    return `
+      <h2 class="day-heading quick-log-heading" id="quick-log-title"><span class="day-label">Quick log</span></h2>
+      <div class="chip-row" role="group" aria-labelledby="quick-log-title">${routes.map((r, i) => {
+        const aria = `Log ${r.from} to ${r.to}, ${distanceWords(r.distanceMi, units)}, ${purposeLabel(r.purpose).toLowerCase()}`;
+        return `<button class="chip quick-chip" type="button" data-act="quick" data-route="${escapeHtml(r.id)}" aria-label="${escapeHtml(aria)}">${icon('plus', { size: 16 })}<span class="chip-label">${escapeHtml(labels[i])}</span><span class="chip-meta">${fmtDistance(r.distanceMi, units)}</span></button>`;
+      }).join('')}</div>`;
+  }
+
+  function rowHtml(t, units, defaultVehicleId) {
+    const vehicle = t.vehicleId ? store.vehicle(t.vehicleId) : null;
+    const personal = t.purpose === 'personal';
+    const value = store.tripTotal(t);
+    const extras = store.tripExtras(t);
+    const title = tripTitle(t);
+    const sub = [];
+    if (t.time) sub.push(fmtTime(t.time));
+    sub.push(t.detail || purposeLabel(t.purpose));
+    if (vehicle && vehicle.id !== defaultVehicleId) sub.push(vehicle.name);
+    if (t.roundTrip) sub.push('Round trip');
+    const aria = [title.text, distanceWords(t.distanceMi, units), t.detail ? `${purposeLabel(t.purpose).toLowerCase()}, ${t.detail}` : purposeLabel(t.purpose).toLowerCase()];
+    if (t.roundTrip) aria.push('round trip');
+    if (!personal) aria.push(extras > 0 ? `${fmtMoney(value)} including ${fmtMoney(extras)} tolls and parking` : fmtMoney(value));
+    aria.push(fmtDayHeading(t.date));
+    return `
+      <button class="row trip-row" type="button" data-act="open" data-id="${escapeHtml(t.id)}" aria-label="${escapeHtml(aria.join(', '))}">
+        <div class="row-main">
+          <div class="row-title">${title.html}</div>
+          <div class="row-sub"><span class="dot ${escapeHtml(t.purpose)}" aria-hidden="true"></span>${escapeHtml(sub.join(' \u00b7 '))}</div>
+        </div>
+        <div class="row-trailing">
+          <div class="row-value">${fmtDistance(t.distanceMi, units)}</div>
+          <div class="row-money${personal ? ' is-none' : ''}">${personal ? '\u2014' : fmtMoney(value)}${!personal && extras > 0 ? '<span class="row-extras" aria-hidden="true">+</span>' : ''}</div>
+        </div>
+      </button>`;
+  }
+
+  function listHtml(trips, units) {
+    const defaultVehicleId = (store.defaultVehicle() || {}).id || null;
+    const groups = [];
+    for (const t of trips) {
+      const g = groups[groups.length - 1];
+      if (g && g.date === t.date) g.trips.push(t); else groups.push({ date: t.date, trips: [t] });
+    }
+    return groups.map((g) => {
+      const total = g.trips.reduce((s, t) => s + (Number(t.distanceMi) || 0), 0);
+      return `
+        <h2 class="day-heading"><span class="day-label">${escapeHtml(fmtDayHeading(g.date))}</span><span class="day-total">${fmtDistance(total, units)}</span></h2>
+        <div class="list">${g.trips.map((t) => rowHtml(t, units, defaultVehicleId)).join('')}</div>`;
+    }).join('');
+  }
+
+  function monthEmptyHtml() {
+    const latest = store.monthsWithTrips()[0];
+    const hasLater = latest && ord(latest) > ord(selected);
+    return `
+      <div class="card month-empty${hasLater ? ' has-action' : ''}">
+        <p class="month-empty-text">No trips in ${escapeHtml(fmtMonthYear(selected.year, selected.month).split(' ')[0])}</p>
+        ${hasLater ? '<button class="btn btn-plain" type="button" data-act="latest">Go to latest month</button>' : ''}
+      </div>`;
+  }
+
+  function emptyStateHtml() {
+    return `
+      <div class="empty-state">
+        <div class="empty-icon" aria-hidden="true">${icon('route', { size: 44 })}</div>
+        <h2 class="title3">No trips yet</h2>
+        <p>Log a trip in a few taps. Save the routes you drive often and they\u2019ll be one tap away next time.</p>
+        <button class="btn btn-secondary" type="button" data-act="new">Log your first trip</button>
+      </div>`;
+  }
+
+  // ---------------------------------------------------------------- render
+
+  function focusKeyOf(el) {
+    if (!el || !root.contains(el)) return null;
+    const b = el.closest('[data-act]');
+    return b ? { act: b.dataset.act, id: b.dataset.id || b.dataset.route || '' } : null;
+  }
+
+  function restoreFocus(key) {
+    if (!key) return;
+    const sel = key.id
+      ? `[data-act="${key.act}"][data-id="${cssEscape(key.id)}"], [data-act="${key.act}"][data-route="${cssEscape(key.id)}"]`
+      : `[data-act="${key.act}"]`;
+    let el = root.querySelector(sel);
+    if (el && el.disabled) el = root.querySelector('.month-nav-btn:not([disabled])');
+    if (el) el.focus({ preventScroll: true });
+  }
+
+  function render() {
+    const units = store.units();
+    const all = store.trips();
+    const b = bounds();
+    clampSelected(b);
+
+    const scrollY = window.scrollY;
+    const focusKey = focusKeyOf(document.activeElement);
+
+    let html = '<div class="page trips-page"><div class="page-header"><h1 class="large-title">Trips</h1></div>';
+    if (!all.length) {
+      html += emptyStateHtml();
+    } else {
+      const trips = store.tripsForMonth(selected.year, selected.month);
+      if (filter && !trips.some((t) => t.purpose === filter)) filter = null;
+      const shown = filter ? trips.filter((t) => t.purpose === filter) : trips;
+      html += monthCardHtml(trips, units, b);
+      html += filter ? '' : quickLogHtml(units);
+      html += trips.length
+        ? (shown.length ? listHtml(shown, units) : `<div class="card month-empty"><p class="muted">No ${escapeHtml(purposeLabel(filter).toLowerCase())} trips this month.</p><button class="btn btn-plain" type="button" data-act="filter" data-purpose="${escapeHtml(filter)}">Show all trips</button></div>`)
+        : monthEmptyHtml();
+    }
+    html += '<p class="sr-only" aria-live="polite" data-live></p></div>';
+    root.innerHTML = html;
+
+    window.scrollTo(0, scrollY);
+    restoreFocus(focusKey);
+  }
+
+  function announceMonth() {
+    const trips = store.tripsForMonth(selected.year, selected.month);
+    const sum = store.summarize(trips);
+    const text = `${fmtMonthYear(selected.year, selected.month)}: ${trips.length} trip${trips.length === 1 ? '' : 's'}, ${distanceWords(sum.distanceMi, store.units())}, ${fmtMoney(sum.total)} deduction`;
+    setTimeout(() => { const el = root.querySelector('[data-live]'); if (alive && el) el.textContent = text; }, 80);
+  }
+
+  function selectMonth(m) {
+    selected = { year: m.year, month: m.month };
+    render();
+    announceMonth();
+  }
+
+  function shiftMonth(delta) {
+    const b = bounds();
+    const next = addMonths(selected.year, selected.month, delta);
+    if (ord(next) < ord(b.min) || ord(next) > ord(b.max)) return;
+    selectMonth(next);
+  }
+
+  // Store changes are coalesced into one render per tick (seeding/import emit dozens).
+  // A single saved trip moves the view to its month so the user sees what they just logged.
+  function schedule() {
+    if (queued) return;
+    queued = true;
+    queueMicrotask(() => {
+      queued = false;
+      if (!alive) return;
+      if (tripOps.length === 1 && (tripOps[0].op === 'add' || tripOps[0].op === 'update')) {
+        const t = store.trip(tripOps[0].id);
+        if (t && t.date) selected = monthOf(t.date);
       }
-
-      <h3>Photos / documents</h3>
-      <div class="media-grid">
-        ${attachments.map((a) => {
-          const url = objectUrl(a);
-          mountedUrls.push(url);
-          return `
-            <figure class="media-item">
-              ${a.mimeType && a.mimeType.startsWith('image/')
-                ? `<img src="${url}" alt="${escapeHtml(a.caption || '')}">`
-                : `<a href="${url}" target="_blank">${escapeHtml(a.caption || a.mimeType || 'file')}</a>`}
-              <button class="btn btn-small btn-danger" data-attachment="${a.id}">Remove</button>
-            </figure>`;
-        }).join('')}
-      </div>
-      <label class="file-picker">
-        <input type="file" accept="image/*" capture="environment" id="photo-input">
-        <span>Add photo</span>
-      </label>
-
-      <h3>Comments</h3>
-      <ul class="comments">
-        ${comments.sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || '')).map((c) => `
-          <li>
-            <div class="comment-body">${escapeHtml(c.body).replace(/\n/g, '<br>')}</div>
-            <div class="comment-meta">${formatDate(c.createdAt)} <button class="link-btn" data-comment="${c.id}">delete</button></div>
-          </li>`).join('')}
-      </ul>
-      <form id="comment-form" class="form">
-        <label>Add comment<textarea name="body" rows="2" required></textarea></label>
-        <button class="btn" type="submit">Post comment</button>
-      </form>
-    </section>
-  `;
-
-  root.querySelector('#photo-input').addEventListener('change', async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    await addAttachment('trip', trip.id, file);
-    renderDetail(root, id);
-  });
-
-  root.querySelectorAll('[data-attachment]').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      if (!confirm('Remove this attachment?')) return;
-      await deleteAttachment(btn.dataset.attachment);
-      renderDetail(root, id);
+      tripOps = [];
+      render();
     });
+  }
+
+  // ---------------------------------------------------------------- events
+
+  function onClick(e) {
+    const btn = e.target.closest('[data-act]');
+    if (!btn || !root.contains(btn) || btn.disabled || btn.getAttribute('aria-disabled') === 'true') return;
+    switch (btn.dataset.act) {
+      case 'prev-month': shiftMonth(-1); break;
+      case 'next-month': shiftMonth(1); break;
+      case 'latest': { const m = store.monthsWithTrips()[0]; if (m) selectMonth(m); break; }
+      case 'open': app.openTrip(btn.dataset.id); break;
+      case 'quick': {
+        const r = store.route(btn.dataset.route);
+        if (r) app.openTrip('new', { from: r.from, to: r.to, distanceMi: r.distanceMi, purpose: r.purpose, detail: r.detail || '', routeId: r.id });
+        break;
+      }
+      case 'new': app.openTrip('new'); break;
+      case 'filter': {
+        const p = btn.dataset.purpose;
+        filter = filter === p ? null : p;
+        app.haptic();
+        render();
+        const live = root.querySelector('[data-live]');
+        if (live) live.textContent = filter ? `Showing ${purposeLabel(filter).toLowerCase()} trips only` : 'Showing all trips';
+        break;
+      }
+      default: break;
+    }
+  }
+  const onTouch = () => {}; // lets iOS Safari apply :active to rows
+
+  root.addEventListener('click', onClick);
+  root.addEventListener('touchstart', onTouch, { passive: true });
+  ctx.onChange((_, change) => {
+    if (change && change.type === 'trips') tripOps.push(change);
+    schedule();
   });
 
-  root.querySelector('#comment-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const fd = new FormData(e.target);
-    await put('comments', {
-      parentType: 'trip',
-      parentId: trip.id,
-      body: fd.get('body') || '',
-    });
-    renderDetail(root, id);
-  });
+  render();
 
-  root.querySelectorAll('[data-comment]').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      if (!confirm('Delete this comment?')) return;
-      await remove('comments', btn.dataset.comment);
-      renderDetail(root, id);
-    });
-  });
+  return () => {
+    alive = false;
+    root.removeEventListener('click', onClick);
+    root.removeEventListener('touchstart', onTouch);
+  };
 }
