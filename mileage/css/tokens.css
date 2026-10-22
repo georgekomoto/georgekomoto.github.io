@@ -1,0 +1,181 @@
+/* Mileage — design tokens
+   Light and dark schemes, iOS-native type scale, spacing, radii.
+   Contrast targets: body text >= 7:1, secondary text >= 4.5:1, accent on bg >= 4.5:1. */
+
+:root {
+  color-scheme: light dark;
+
+  /* Safe areas (overridable by the screenshot harness) */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+
+  /* Layout */
+  --gutter: 16px;
+  --top-bar-h: 44px;
+  --tab-bar-h: 64px;
+  --tab-bar-gap: 12px;
+  --content-bottom: calc(var(--tab-bar-h) + var(--tab-bar-gap) + var(--safe-bottom) + 24px);
+
+  /* Radii */
+  --r-card: 16px;
+  --r-control: 12px;
+  --r-button: 14px;
+  --r-pill: 999px;
+  --r-sheet: 22px;
+
+  /* Type (iOS Dynamic Type "Large") */
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", system-ui, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+  --fs-large-title: 34px; --lh-large-title: 41px;
+  --fs-title1: 28px;      --lh-title1: 34px;
+  --fs-title2: 22px;      --lh-title2: 28px;
+  --fs-title3: 20px;      --lh-title3: 25px;
+  --fs-headline: 17px;    --lh-headline: 22px;
+  --fs-body: 17px;        --lh-body: 22px;
+  --fs-callout: 16px;     --lh-callout: 21px;
+  --fs-subhead: 15px;     --lh-subhead: 20px;
+  --fs-footnote: 13px;    --lh-footnote: 18px;
+  --fs-caption: 12px;     --lh-caption: 16px;
+  --fs-caption2: 11px;    --lh-caption2: 13px;
+
+  /* Motion */
+  --ease-out: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --dur-fast: 160ms;
+  --dur-sheet: 380ms;
+
+  /* Light scheme */
+  --bg: #F2F2F7;
+  --bg-elevated: #FFFFFF;
+  --bg-elevated-2: #FFFFFF;
+  --fill: rgba(118, 118, 128, 0.12);
+  --fill-strong: rgba(118, 118, 128, 0.20);
+  --label: #000000;
+  --label-2: #5C5C61;          /* 5.9:1 on #F2F2F7, 6.9:1 on white */
+  --label-3: #6E6E74;          /* placeholders and hints: 5.1:1 on white, 4.5:1 on the page */
+  --separator: rgba(60, 60, 67, 0.18);
+  --separator-opaque: #D8D8DC;
+  --accent: #0B7A55;           /* 5.4:1 with white */
+  --accent-hover: #096646;
+  --accent-soft: rgba(11, 122, 85, 0.12);
+  --accent-soft-2: rgba(11, 122, 85, 0.18);
+  --on-accent: #FFFFFF;
+  --danger: #C8102E;           /* 6.0:1 on white */
+  --danger-soft: rgba(200, 16, 46, 0.10);
+  --warning: #9A5B00;
+  --warning-soft: rgba(154, 91, 0, 0.12);
+
+  /* Purpose colors (dot/tint + text on white >= 4.5:1) */
+  --p-business: #0B7A55;
+  --p-personal: #6E6E73;
+  --p-medical: #2D5EC8;
+  --p-charity: #A8580C;
+
+  /* Chart palette */
+  --chart-1: #0B7A55;
+  --chart-2: #2D5EC8;
+  --chart-3: #A8580C;
+  --chart-muted: #C7C7CC;
+  --chart-grid: rgba(60, 60, 67, 0.12);
+
+  /* Glass (floating bars, sheets) */
+  --glass-bg: rgba(255, 255, 255, 0.965);
+  --glass-border: rgba(0, 0, 0, 0.06);
+  --glass-highlight: rgba(255, 255, 255, 0.85);
+  --shadow-float: 0 10px 30px rgba(0, 0, 0, 0.14), 0 2px 6px rgba(0, 0, 0, 0.06);
+  --shadow-sheet: 0 -8px 40px rgba(0, 0, 0, 0.18);
+  --shadow-thumb: 0 3px 8px rgba(0, 0, 0, 0.12), 0 3px 1px rgba(0, 0, 0, 0.04);
+  --scrim: rgba(0, 0, 0, 0.32);
+  --toast-bg: #1C1C1E;
+  --toast-fg: #FFFFFF;
+  --toast-action: #5FD3A4;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #000000;
+    --bg-elevated: #1C1C1E;
+    --bg-elevated-2: #2C2C2E;
+    --fill: rgba(118, 118, 128, 0.24);
+    --fill-strong: rgba(118, 118, 128, 0.36);
+    --label: #FFFFFF;
+    --label-2: #B4B4B9;        /* 8.2:1 on #1C1C1E, APCA 60 */
+    --label-3: #98989C;
+    --separator: rgba(84, 84, 88, 0.65);
+    --separator-opaque: #38383A;
+    --accent: #3DCA94;         /* 8.2:1 on #1C1C1E, APCA 60 */
+    --accent-hover: #34BC88;
+    --accent-soft: rgba(61, 202, 148, 0.16);
+    --accent-soft-2: rgba(61, 202, 148, 0.26);
+    --on-accent: #03231A;      /* 7.6:1 on accent, APCA 61 */
+    --danger: #FF9790;         /* 8.2:1 on #1C1C1E, APCA 60 */
+    --danger-soft: rgba(255, 151, 144, 0.16);
+    --warning: #F0B24A;
+    --warning-soft: rgba(240, 178, 74, 0.16);
+
+    --p-business: #3DCA94;
+    --p-personal: #B4B4B9;
+    --p-medical: #8ABAFF;
+    --p-charity: #F0A355;
+
+    --chart-1: #3DCA94;
+    --chart-2: #8ABAFF;
+    --chart-3: #F0A355;
+    --chart-muted: #48484A;
+    --chart-grid: rgba(255, 255, 255, 0.12);
+
+    --glass-bg: rgba(28, 28, 30, 0.955);
+    --glass-border: rgba(255, 255, 255, 0.10);
+    --glass-highlight: rgba(255, 255, 255, 0.08);
+    --shadow-float: 0 10px 30px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.35);
+    --shadow-sheet: 0 -8px 40px rgba(0, 0, 0, 0.6);
+    --shadow-thumb: 0 3px 8px rgba(0, 0, 0, 0.4);
+    --scrim: rgba(0, 0, 0, 0.5);
+    --toast-bg: #2C2C2E;
+    --toast-fg: #FFFFFF;
+    --toast-action: #4CCE9C;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #000000;
+  --bg-elevated: #1C1C1E;
+  --bg-elevated-2: #2C2C2E;
+  --fill: rgba(118, 118, 128, 0.24);
+  --fill-strong: rgba(118, 118, 128, 0.36);
+  --label: #FFFFFF;
+  --label-2: #B4B4B9;
+  --label-3: #98989C;
+  --separator: rgba(84, 84, 88, 0.65);
+  --separator-opaque: #38383A;
+  --accent: #3DCA94;
+  --accent-hover: #34BC88;
+  --accent-soft: rgba(61, 202, 148, 0.16);
+  --accent-soft-2: rgba(61, 202, 148, 0.26);
+  --on-accent: #03231A;
+  --danger: #FF9790;
+  --danger-soft: rgba(255, 151, 144, 0.16);
+  --warning: #F0B24A;
+  --warning-soft: rgba(240, 178, 74, 0.16);
+  --p-business: #3DCA94;
+  --p-personal: #B4B4B9;
+  --p-medical: #8ABAFF;
+  --p-charity: #F0A355;
+  --chart-1: #3DCA94;
+  --chart-2: #8ABAFF;
+  --chart-3: #F0A355;
+  --chart-muted: #48484A;
+  --chart-grid: rgba(255, 255, 255, 0.12);
+  --glass-bg: rgba(28, 28, 30, 0.955);
+  --glass-border: rgba(255, 255, 255, 0.10);
+  --glass-highlight: rgba(255, 255, 255, 0.08);
+  --shadow-float: 0 10px 30px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.35);
+  --shadow-sheet: 0 -8px 40px rgba(0, 0, 0, 0.6);
+  --shadow-thumb: 0 3px 8px rgba(0, 0, 0, 0.4);
+  --scrim: rgba(0, 0, 0, 0.5);
+  --toast-bg: #2C2C2E;
+  --toast-fg: #FFFFFF;
+  --toast-action: #4CCE9C;
+}

@@ -1,0 +1,107 @@
+/* Mileage — Settings tab. Everything is scoped under .settings-page so nothing leaks. */
+
+/* ---------- Rows rendered as links / buttons ---------- */
+.settings-page a.row { color: var(--label); }
+.settings-page .row-main > *, .settings-page .row-trailing > * { display: block; }
+.settings-page .row-title .badge { display: inline-flex; margin-left: 6px; vertical-align: 2px; }
+.settings-page .row-title { font-weight: 400; }
+.settings-page .row.add .row-title,
+.settings-page .row.action .row-title { color: var(--accent); }
+.settings-page .row.action.danger .row-title { color: var(--danger); }
+.settings-page .row-sub .dot { vertical-align: 0; }
+
+/* Hairlines between mixed .field / .row children of one list */
+.settings-page .list > .field + .row::before,
+.settings-page .list > .row + .field::before {
+  content: "";
+  position: absolute;
+  left: 16px; right: 0; top: 0;
+  height: 0.5px;
+  background: var(--separator);
+}
+
+/* ---------- 44pt hit areas without changing the visual sizes ---------- */
+.settings-page .seg input { top: -6px; bottom: -6px; height: auto; }             /* 32pt control, 44pt target */
+.settings-page .field > .field-input { min-height: 44px; margin-top: -4px; margin-bottom: -4px; }
+.settings-page .switch input { top: -7px; bottom: -6px; height: auto; }          /* 31pt switch, 44pt target */
+
+/* ---------- Inline controls inside .field ---------- */
+.settings-page .field > .segmented { margin-left: auto; flex: 0 0 auto; width: 188px; }
+.settings-page .field > select.field-input { color: var(--label-2); text-align-last: right; }
+.settings-page .field-unit { flex: 0 0 auto; color: var(--label-2); font-size: var(--fs-body); }
+.settings-page .field-input.num { font-variant-numeric: tabular-nums; }
+.settings-page .field-input[type="date"] { flex: 1 1 auto; text-align: right; direction: rtl; }
+.settings-page .field-input[type="date"]::-webkit-calendar-picker-indicator { display: none; }
+
+/* Stacked fields: hint and inline error sit under the input */
+.settings-page .field-stacked .hint,
+.settings-page .field-stacked .error-text { margin-top: 2px; }
+.settings-page .field:not(.field-stacked) .error-text { flex: 1 0 100%; text-align: right; margin-top: -4px; padding-bottom: 2px; }
+.settings-page .field:not(.field-stacked) { flex-wrap: wrap; }
+.settings-page .field:not(.field-stacked) > .field-input { flex: 1 1 0%; width: 0; }
+.settings-page .field.is-invalid .field-label { color: var(--danger); }
+.settings-page .field.is-invalid .hint { display: none; }
+.settings-page .form-error { padding: 12px 16px 0; }
+
+/* ---------- Sub-page navigation: back button sits in the nav-bar zone above the large title ---------- */
+.settings-page .sub-nav {
+  display: flex;
+  align-items: center;
+  height: var(--top-bar-h);
+  margin: calc(-1 * var(--top-bar-h)) 0 0 calc(-1 * var(--gutter) - 3px);
+  position: relative;
+  z-index: 31; /* above the (transparent, click-through) fixed top bar */
+}
+.settings-page .nav-btn.back { padding: 0 10px 0 2px; font-size: var(--fs-body); letter-spacing: -0.2px; }
+.settings-page .nav-btn.back svg { width: 26px; height: 26px; margin-right: -2px; }
+
+/* ---------- Install tip card ---------- */
+.settings-page .install-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 48px 14px 14px;
+  position: relative;
+  margin-bottom: 8px;
+}
+.settings-page .install-card .row-icon { width: 36px; height: 36px; border-radius: 9px; margin-top: 2px; }
+.settings-page .install-card .row-icon svg { width: 22px; height: 22px; }
+.settings-page .install-body { display: block; min-width: 0; }
+.settings-page .install-body .headline { display: block; margin-bottom: 2px; }
+.settings-page .install-body .footnote { display: block; }
+.settings-page .dismiss {
+  position: absolute;
+  top: 2px; right: 2px;
+  width: 44px; height: 44px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--label-2);
+  border-radius: 50%;
+}
+.settings-page .dismiss .glyph {
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  background: var(--fill);
+  display: flex; align-items: center; justify-content: center;
+  transition: background var(--dur-fast) linear;
+}
+.settings-page .dismiss:active .glyph { background: var(--fill-strong); }
+
+/* ---------- Forms ---------- */
+.settings-page .settings-form .section-footer + .section-title { margin-top: 24px; }
+.settings-page .form-actions { display: flex; flex-direction: column; gap: 12px; margin-top: 24px; }
+
+/* Intro copy directly under a large title, and spacing to whatever follows it */
+.settings-page .intro { padding: 0 16px 14px; margin-top: -4px; }
+.settings-page .section-footer + .list,
+.settings-page .section-footer + .card,
+.settings-page .section-footer + form { margin-top: 16px; }
+.settings-page .intro + .list,
+.settings-page .intro + .card { margin-top: 0; }
+
+/* ---------- Empty state (saved routes) ---------- */
+.settings-page .empty-state { padding: 36px 24px; }
+.settings-page .empty-state svg { color: var(--label-3); }
+
+/* ---------- About line ---------- */
+.settings-page .about { text-align: center; margin-top: 36px; }
+.settings-page .about-version { font-weight: 600; }
