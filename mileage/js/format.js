@@ -211,6 +211,19 @@ export function groupReading(canon) {
   return f === undefined ? whole : `${whole}${DECIMAL}${f}`;
 }
 
+/** Whether a reading being typed is complete enough to compare against a reference reading. Waits
+    while it is shorter, and when its whole part matches the reference, for the tenths digit, so a
+    sub-mile trip (48,222.4 to 48,222.9) never flashes an error at '48222'. Leaving the field ends it. */
+export function readingJudged(canon, ref, done = false) {
+  if (done) return true;
+  if (!canon || ref == null) return false;
+  const [whole, tenth] = String(canon).split('.');
+  const refWhole = String(Math.floor(Number(ref)));
+  if (whole.length !== refWhole.length) return whole.length > refWhole.length;
+  if (whole !== refWhole) return true;
+  return tenth !== undefined && tenth !== '';
+}
+
 /** Short labels for a set of routes: drop ' · qualifier' and ', city' suffixes when every label stays
     distinct, then cut each side at a word boundary. */
 export function routeLabels(routes, max = 14) {

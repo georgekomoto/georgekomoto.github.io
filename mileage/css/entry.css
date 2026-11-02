@@ -75,7 +75,7 @@
   text-align: center;
   caret-color: var(--accent);
 }
-.entry .hero-num::placeholder { color: var(--label-3); }
+.entry .hero-num::placeholder { color: var(--placeholder-hero); }
 .entry .hero-num:focus-visible { outline: none; }
 
 .entry .hero-out { display: block; }
@@ -323,6 +323,8 @@
   padding: 0 16px 16px;
   text-align: center;
 }
+/* With the shortcut present, hint left and button right, so the button never moves when the hint changes. */
+.entry .start-last.has-action { justify-content: space-between; text-align: left; }
 .entry .start-last .btn-sm { min-height: 44px; }
 .entry .warn-text {
   margin: -6px 0 0;
@@ -356,8 +358,9 @@
   color: var(--label);
   font-variant-numeric: tabular-nums;
 }
-.entry .hero-result.is-empty { font-size: var(--fs-subhead); line-height: var(--lh-subhead); font-weight: 400; color: var(--label-2); }
-.entry .hero-result.is-error { font-size: var(--fs-subhead); line-height: var(--lh-subhead); font-weight: 500; color: var(--danger); }
+/* Every state keeps the 22pt line box, so the card never changes height as the reading is typed. */
+.entry .hero-result.is-empty { font-size: var(--fs-subhead); line-height: 22px; font-weight: 400; color: var(--label-2); }
+.entry .hero-result.is-error { font-size: var(--fs-subhead); line-height: 22px; font-weight: 500; color: var(--danger); }
 
 /* Start sheet: a low reading replaces the hint in place, so the card never changes height. */
 .entry .start-last .hint.is-warning { color: var(--warning); font-weight: 500; }

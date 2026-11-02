@@ -575,7 +575,7 @@ textarea.field-input { resize: none; line-height: var(--lh-body); }
 .sheet {
   --bg: var(--sheet-bg);
   --bg-elevated: var(--sheet-cell);
-  --glass-bg: var(--sheet-glass, var(--glass-bg));
+  --glass-bg: var(--sheet-glass);
   position: absolute;
   left: 0; right: 0; bottom: var(--kb-inset, 0px);
   top: calc(var(--safe-top) + 12px);
@@ -613,6 +613,14 @@ textarea.field-input { resize: none; line-height: var(--lh-body); }
 .sheet-header > :first-child { justify-self: start; }
 .sheet-header > :last-child { justify-self: end; }
 .sheet-title { font-size: var(--fs-headline); font-weight: 600; text-align: center; }
+
+/* Scroll edge: once the content scrolls under the header, a hairline and a short fade replace the hard cut. */
+.sheet-header { position: relative; z-index: 1; transition: box-shadow var(--dur-fast) linear; }
+.sheet.is-scrolled .sheet-header { box-shadow: 0 0.5px 0 var(--separator); }
+.sheet.is-scrolled .sheet-content {
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 14px);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 14px);
+}
 
 .sheet-content {
   flex: 1 1 auto;
@@ -702,7 +710,7 @@ textarea.field-input { resize: none; line-height: var(--lh-body); }
 }
 .empty-state svg { margin: 0 auto 16px; }
 .empty-state .title3 { margin-bottom: 6px; }
-.empty-state p { color: var(--label-2); font-size: var(--fs-subhead); line-height: var(--lh-subhead); max-width: 300px; margin: 0 auto; }
+.empty-state p { color: var(--label-2); font-size: var(--fs-subhead); line-height: var(--lh-subhead); max-width: 300px; margin: 0 auto; text-wrap: balance; }
 .empty-state .btn { margin-top: 20px; }
 
 /* ---------- Misc ---------- */

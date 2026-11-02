@@ -3,7 +3,7 @@
 // new: log a trip already driven. <id>: edit a saved trip.
 // Renders once, then patches the live nodes (summary, hints, visibility) as the user types.
 
-import { escapeHtml, fmtDistance, fmtMoney, fmtCents, fmtDate, fmtTime, fmtWhen, nowTime, todayISO, isValidISODate, canonReading, groupReading, routeLabels } from '../format.js';
+import { escapeHtml, fmtDistance, fmtMoney, fmtCents, fmtDate, fmtTime, fmtWhen, nowTime, todayISO, isValidISODate, canonReading, groupReading, routeLabels, readingJudged } from '../format.js';
 import { PURPOSES, PURPOSE_IDS, purposeLabel } from '../store.js';
 
 const MAX_PLACES = 60;
@@ -245,7 +245,7 @@ export function mount(root, ctx) {
     <div class="sheet-content">
       ${isNew ? quickHtml() : ''}
       <div class="card hero-card">
-        ${isFinish ? '<p class="hero-label" id="e-end-label">Odometer now</p>' : ''}
+        ${isFinish ? '<p class="hero-label" id="e-end-label">Odometer reading</p>' : ''}
         <div class="hero">
           <span class="hero-grow" data-value="0">
             <input class="hero-num" id="e-distance" type="text" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*" placeholder="0" size="1" maxlength="9" autocomplete="off" enterkeyhint="done" aria-label="Distance in ${unitWord}">
@@ -408,12 +408,10 @@ export function mount(root, ctx) {
       // The result line under the end reading: when it started, then the distance, or what is wrong.
       const d = odoDelta();
       const ok = d != null && d > 0;
-      const whole = (st.odoEnd.split('.')[0] || '').length;
-      const ready = st.odoTouched || whole >= String(Math.floor(parseDecimal(st.odoStart))).length;
-      const bad = d != null && d <= 0 && ready;
+      const bad = d != null && d <= 0 && readingJudged(st.odoEnd, parseDecimal(st.odoStart), st.odoTouched);
       el.result.classList.toggle('is-empty', !ok && !bad);
       el.result.classList.toggle('is-error', bad);
-      el.result.textContent = bad ? 'Lower than the start reading'
+      el.result.textContent = bad ? 'Must be higher than the start reading'
         : ok ? `${fmtDistance(store.fromDisplay(d), units)} driven`
         : `Started ${fmtWhen(st.date, st.time)}`;
       el.odoNote.hidden = true;

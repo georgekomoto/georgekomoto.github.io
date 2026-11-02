@@ -2,7 +2,7 @@
 // The first half of a trip: the odometer reading, date, time and vehicle when you set off. Saving it
 // creates a trip in progress, which the finish sheet (#/trip/finish) completes when you arrive.
 
-import { escapeHtml, fmtDate, fmtTime, fmtWhen, nowTime, todayISO, canonReading, groupReading } from '../format.js';
+import { escapeHtml, fmtDate, fmtTime, fmtWhen, nowTime, todayISO, canonReading, groupReading, readingJudged } from '../format.js';
 
 export function mount(root, ctx) {
   const { store, app } = ctx;
@@ -156,9 +156,7 @@ export function mount(root, ctx) {
     // Lower than the last reading is almost always a typo, but a new car or a corrected log can make it
     // legitimate, so it warns without blocking. It waits until the reading is as long as the last one,
     // or the field is left, so typing 4 → 48 → 485 never flashes a warning.
-    const whole = st.odo.split('.')[0].length;
-    const ready = st.odoDone || (last.value != null && whole >= String(Math.floor(last.value)).length);
-    const low = typed != null && last.value != null && ready && typed < last.value;
+    const low = typed != null && last.value != null && readingJudged(st.odo, last.value, st.odoDone) && typed < last.value;
     if (last.value != null) {
       const shown = groupReading(String(last.value));
       el.lastText.textContent = low
@@ -172,6 +170,7 @@ export function mount(root, ctx) {
       el.useLast.hidden = true;
     }
     el.lastText.classList.toggle('is-warning', low);
+    el.useLast.parentElement.classList.toggle('has-action', !el.useLast.hidden);
 
     el.dateDisplay.textContent = st.date ? fmtDate(st.date, { weekday: true, year: true }) : 'Pick a date';
     el.date.setAttribute('aria-label', `Date${st.date ? `, ${fmtDate(st.date, { weekday: true, year: true })}` : ''}`);

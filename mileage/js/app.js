@@ -234,6 +234,11 @@ async function openSheet(name, params, query) {
     view.querySelector('#sheet-err-close').addEventListener('click', () => app.closeSheet());
   }
   handOffKeyboard(view);
+  const content = sheetRoot.querySelector('.sheet-content');
+  const sheetEl = sheetRoot.querySelector('.sheet');
+  if (content && sheetEl) {
+    content.addEventListener('scroll', () => sheetEl.classList.toggle('is-scrolled', content.scrollTop > 0), { passive: true });
+  }
   // Lock the page behind the sheet without losing its scroll position: the tab root becomes a
   // fixed-height, overflow-hidden box, so mirror window.scrollY into its own scrollTop.
   lockedScrollY = window.scrollY;

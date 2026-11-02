@@ -63,7 +63,9 @@
   --accent-soft-2: rgba(11, 122, 85, 0.18);
   --sheet-bg: #F2F2F7;
   --sheet-cell: #FFFFFF;
+  --sheet-glass: rgba(255, 255, 255, 0.965);
   --seg-thumb: #FFFFFF;
+  --placeholder-hero: #949499;    /* hint tone for 44pt placeholders: 3.1:1 on white, the large-text floor */
   --accent-ink: #0A714F;          /* accent text on the accent tint: 4.6:1 on the page, 5.1:1 on a card */
   --on-accent: #FFFFFF;
   --danger: #C8102E;           /* 6.0:1 on white */
@@ -118,6 +120,7 @@
     --sheet-cell: #2C2C2E;
     --sheet-glass: rgba(44, 44, 46, 0.955);
     --seg-thumb: #636366;
+    --placeholder-hero: #78787C;
     --on-accent: #03231A;      /* 7.6:1 on accent, APCA 61 */
     --danger: #FF9790;         /* 8.2:1 on #1C1C1E, APCA 60 */
     --danger-soft: rgba(255, 151, 144, 0.16);
@@ -168,6 +171,7 @@
   --sheet-cell: #2C2C2E;
   --sheet-glass: rgba(44, 44, 46, 0.955);
   --seg-thumb: #636366;
+  --placeholder-hero: #78787C;
   --on-accent: #03231A;
   --danger: #FF9790;
   --danger-soft: rgba(255, 151, 144, 0.16);
