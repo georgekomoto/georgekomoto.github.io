@@ -17,7 +17,7 @@
 }
 .entry .chip svg { color: var(--accent); }
 .entry .chip-label {
-  max-width: 200px;
+  max-width: 240px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -157,11 +157,11 @@
   position: absolute;
   inset: 5px;
   border-radius: 50%;
-  background: var(--accent-soft);
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg-elevated));
   transition: background var(--dur-fast) linear;
 }
 .entry .swap-btn svg { position: relative; }
-.entry .swap-btn:active::before { background: var(--accent-soft-2); }
+.entry .swap-btn:active::before { background: color-mix(in srgb, var(--accent) 20%, var(--bg-elevated)); }
 
 /* ---------- Purpose ---------- */
 .entry .purpose-list { padding: 8px; background: transparent; }
@@ -174,7 +174,7 @@
 
 /* ---------- Details ---------- */
 .entry .details-list { margin-top: 16px; }
-.entry .details-list textarea.field-input { padding: 2px 0 6px; overflow: hidden; }
+.entry .details-list textarea.field-input { padding: 2px 0 6px; overflow: hidden; min-height: 28px; }
 .entry .details-list .field-stacked .field-label { padding-top: 4px; }
 
 /* Compact stacked fields: iOS uses a tight caption over its value, not a two-line block. */
@@ -191,10 +191,15 @@
   min-height: 44px;
   margin-left: auto;
 }
-.entry .date-display {
+.entry .date-display,
+.entry .time-display {
   font-size: var(--fs-body);
+  line-height: var(--lh-body);
   color: var(--label);
   white-space: nowrap;
+  background: var(--fill);
+  border-radius: 8px;
+  padding: 6px 11px;
 }
 /* The native control stays on top so it still opens the system picker, but its own text is hidden. */
 .entry .date-control input[type="date"] {
@@ -255,8 +260,8 @@
   min-height: 44px;
   margin-left: auto;
 }
-.entry .time-display { font-size: var(--fs-body); color: var(--label); white-space: nowrap; }
-.entry .time-display.is-empty { color: var(--label-3); }
+
+.entry .time-display.is-empty { color: var(--label-2); }   /* on the capsule fill, tertiary text drops below 4.5:1 */
 .entry .time-control input[type="time"] {
   position: absolute;
   inset: 0;
@@ -265,7 +270,7 @@
   opacity: 0;
   cursor: pointer;
 }
-.entry .time-control:focus-within .time-display { box-shadow: 0 0 0 2px var(--accent); border-radius: 6px; }
+.entry .time-control:focus-within .time-display { box-shadow: 0 0 0 2px var(--accent); border-radius: 8px; }
 
 /* ---------- Tolls and parking ---------- */
 .entry .extras-toggle {
@@ -274,6 +279,8 @@
   min-height: 44px;
   margin-top: 12px;
   justify-content: center;
+  font-size: var(--fs-subhead);
+  font-weight: 500;
 }
 .entry .extras-list { margin-top: 4px; }
 .entry .money-field {
@@ -335,5 +342,22 @@
   font-weight: 500;
 }
 /* Finishing a trip, the route picks sit between the reading and the route fields. */
-.entry[data-mode="finish"] .quick { margin: 16px 0 0; }
+.entry[data-mode="finish"] .quick { margin: 16px 0 10px; }
 .entry .empty-symbol { color: var(--label-3); }
+
+/* ---------- Finish sheet: the end reading leads, the result sits under it ---------- */
+.entry .hero-result {
+  margin: 0;
+  padding: 0 16px 16px;
+  text-align: center;
+  font-size: var(--fs-headline);
+  line-height: var(--lh-headline);
+  font-weight: 600;
+  color: var(--label);
+  font-variant-numeric: tabular-nums;
+}
+.entry .hero-result.is-empty { font-size: var(--fs-subhead); line-height: var(--lh-subhead); font-weight: 400; color: var(--label-2); }
+.entry .hero-result.is-error { font-size: var(--fs-subhead); line-height: var(--lh-subhead); font-weight: 500; color: var(--danger); }
+
+/* Start sheet: a low reading replaces the hint in place, so the card never changes height. */
+.entry .start-last .hint.is-warning { color: var(--warning); font-weight: 500; }

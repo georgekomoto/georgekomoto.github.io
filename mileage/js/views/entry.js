@@ -3,7 +3,7 @@
 // new: log a trip already driven. <id>: edit a saved trip.
 // Renders once, then patches the live nodes (summary, hints, visibility) as the user types.
 
-import { escapeHtml, fmtDistance, fmtMoney, fmtCents, fmtDate, fmtTime, fmtWhen, nowTime, todayISO, isValidISODate } from '../format.js';
+import { escapeHtml, fmtDistance, fmtMoney, fmtCents, fmtDate, fmtTime, fmtWhen, nowTime, todayISO, isValidISODate, canonReading, groupReading, routeLabels } from '../format.js';
 import { PURPOSES, PURPOSE_IDS, purposeLabel } from '../store.js';
 
 const MAX_PLACES = 60;
@@ -78,6 +78,7 @@ export function mount(root, ctx) {
   const el = {
     form: $('.entry'), cancel: $('#e-cancel'), quick: $('.quick'), chipRow: $('.quick .chip-row'), chips: [],
     hero: $('.hero'), grow: $('.hero-grow'), distance: $('#e-distance'), derived: $('#e-derived'), unit: $('#e-unit'),
+    growEnd: $('.hero-grow-end'), result: $('#e-result'),
     roundRow: $('#e-round-row'), round: $('#e-round'), roundHint: $('#e-round-hint'),
     odo: $('#e-odo'), odoStart: $('#e-odo-start'), odoEnd: $('#e-odo-end'), odoNote: $('#e-odo-note'), mode: $('#e-mode'),
     from: $('#e-from'), to: $('#e-to'), swap: $('#e-swap'), places: $('#e-places'),
@@ -88,7 +89,7 @@ export function mount(root, ctx) {
 
   el.distance.value = st.distance; setGrow();
   el.round.checked = st.roundTrip;
-  el.odoStart.value = st.odoStart; el.odoEnd.value = st.odoEnd;
+  el.odoStart.value = groupReading(st.odoStart); el.odoEnd.value = groupReading(st.odoEnd); setGrowEnd();
   el.from.value = st.from; el.to.value = st.to;
   el.notes.value = st.notes;
   el.tolls.value = st.tolls; el.parking.value = st.parking;
@@ -117,7 +118,7 @@ export function mount(root, ctx) {
   if (el.discard) el.discard.addEventListener('click', discard);
   el.form.addEventListener('submit', (e) => { e.preventDefault(); if (!el.save.disabled) save(); });
 
-  el.hero.addEventListener('click', (e) => { if (e.target !== el.distance) primaryInput().focus(); });
+  el.hero.addEventListener('click', (e) => { if (e.target.tagName !== 'INPUT') primaryInput().focus(); });
   el.distance.addEventListener('input', () => {
     const clean = sanitizeDecimal(el.distance.value, 6, 2);
     if (clean !== el.distance.value) el.distance.value = clean;
@@ -132,16 +133,17 @@ export function mount(root, ctx) {
   el.round.addEventListener('change', () => { st.roundTrip = el.round.checked; update(); });
 
   el.odoStart.addEventListener('input', () => {
-    const clean = sanitizeDecimal(el.odoStart.value, 7, 2);
-    if (clean !== el.odoStart.value) el.odoStart.value = clean;
-    st.odoStart = clean; st.odoStartAuto = false; clearError(); update();
+    st.odoStart = canonReading(el.odoStart.value);
+    showReading(el.odoStart, st.odoStart);
+    st.odoStartAuto = false; clearError(); update();
   });
   el.odoEnd.addEventListener('input', () => {
-    const clean = sanitizeDecimal(el.odoEnd.value, 7, 2);
-    if (clean !== el.odoEnd.value) el.odoEnd.value = clean;
-    st.odoEnd = clean; clearError(); update();
+    st.odoEnd = canonReading(el.odoEnd.value);
+    showReading(el.odoEnd, st.odoEnd);
+    clearError(); update();
   });
-  el.odoEnd.addEventListener('blur', () => { st.odoTouched = true; update(); });
+  el.odoStart.addEventListener('blur', () => { st.odoStart = st.odoStart.replace(/\.$/, ''); showReading(el.odoStart, st.odoStart); update(); });
+  el.odoEnd.addEventListener('blur', () => { st.odoEnd = st.odoEnd.replace(/\.$/, ''); showReading(el.odoEnd, st.odoEnd); st.odoTouched = true; update(); });
   el.odoStart.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); el.odoEnd.focus(); } });
   el.odoEnd.addEventListener('keydown', onEnterSave);
   el.mode.addEventListener('click', () => setMode(st.mode === 'odometer' ? 'distance' : 'odometer'));
@@ -243,14 +245,18 @@ export function mount(root, ctx) {
     <div class="sheet-content">
       ${isNew ? quickHtml() : ''}
       <div class="card hero-card">
-        ${isFinish ? `<p class="hero-caption" id="e-started">${escapeHtml(`Started ${fmtWhen(openTrip.date, openTrip.time)}`)}</p>` : ''}
+        ${isFinish ? '<p class="hero-label" id="e-end-label">Odometer now</p>' : ''}
         <div class="hero">
           <span class="hero-grow" data-value="0">
             <input class="hero-num" id="e-distance" type="text" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*" placeholder="0" size="1" maxlength="9" autocomplete="off" enterkeyhint="done" aria-label="Distance in ${unitWord}">
           </span>
+          ${isFinish ? `<span class="hero-grow hero-grow-end" data-value="${escapeHtml(groupReading(st.odoStart))}">
+            <input class="hero-num" id="e-odo-end" type="text" inputmode="decimal" placeholder="${escapeHtml(groupReading(st.odoStart))}" size="1" maxlength="11" autocomplete="off" enterkeyhint="done" aria-labelledby="e-end-label" aria-describedby="e-result" data-autofocus>
+          </span>` : ''}
           <output class="hero-num hero-out is-empty" id="e-derived" for="e-odo-start e-odo-end" aria-label="Distance in ${unitWord}, from the odometer" hidden>0</output>
           <span class="hero-unit" id="e-unit" aria-hidden="true">${units}</span>
         </div>
+        ${isFinish ? '<p class="hero-result is-empty" id="e-result" aria-live="polite"></p>' : ''}
         <div class="field round-row" id="e-round-row">
           <div class="field-main">
             <span class="field-label" id="e-round-label">Round trip</span>
@@ -259,8 +265,8 @@ export function mount(root, ctx) {
           <label class="switch"><input type="checkbox" role="switch" id="e-round" aria-labelledby="e-round-label"><span class="switch-track"></span></label>
         </div>
         <div class="odo" id="e-odo" hidden>
-          <label class="field"><span class="field-label">Start odometer</span><input class="field-input num" id="e-odo-start" type="text" inputmode="decimal" placeholder="Start reading" maxlength="10" autocomplete="off" enterkeyhint="next"></label>
-          <label class="field"><span class="field-label">End odometer</span><input class="field-input num" id="e-odo-end" type="text" inputmode="decimal" placeholder="End reading" maxlength="10" autocomplete="off" enterkeyhint="done"></label>
+          <label class="field"><span class="field-label">Start odometer</span><input class="field-input num" id="e-odo-start" type="text" inputmode="decimal" placeholder="Start reading" maxlength="11" autocomplete="off" enterkeyhint="next"></label>
+          ${isFinish ? '' : '<label class="field"><span class="field-label">End odometer</span><input class="field-input num" id="e-odo-end" type="text" inputmode="decimal" placeholder="End reading" maxlength="11" autocomplete="off" enterkeyhint="done"></label>'}
           <p class="odo-note error-text" id="e-odo-note" hidden></p>
         </div>
         <button class="mode-toggle" type="button" id="e-mode">Use odometer</button>
@@ -268,8 +274,8 @@ export function mount(root, ctx) {
       ${isFinish ? quickHtml() : ''}
       <div class="list route-list">
         <div class="route-fields">
-          <label class="field field-stacked"><span class="field-label">From</span><input class="field-input" id="e-from" type="text" list="e-places" placeholder="Optional" autocomplete="off" autocapitalize="words" enterkeyhint="next" maxlength="120"></label>
-          <label class="field field-stacked"><span class="field-label">To</span><input class="field-input" id="e-to" type="text" list="e-places" placeholder="Optional" autocomplete="off" autocapitalize="words" enterkeyhint="next" maxlength="120"></label>
+          <label class="field field-stacked"><span class="field-label">From</span><input class="field-input" id="e-from" type="text" list="e-places" placeholder="Starting point" autocomplete="off" autocapitalize="words" enterkeyhint="next" maxlength="120"></label>
+          <label class="field field-stacked"><span class="field-label">To</span><input class="field-input" id="e-to" type="text" list="e-places" placeholder="Destination" autocomplete="off" autocapitalize="words" enterkeyhint="next" maxlength="120"></label>
           <button class="swap-btn" type="button" id="e-swap" aria-label="Swap from and to">${icon('swap', { size: 20 })}</button>
         </div>
         <datalist id="e-places"></datalist>
@@ -307,7 +313,7 @@ export function mount(root, ctx) {
           </span>
         </label>
         ${vehicleRow}
-        <label class="field field-stacked"><span class="field-label">Notes</span><textarea class="field-input" id="e-notes" rows="1" placeholder="Optional" maxlength="500" autocapitalize="sentences"></textarea></label>
+        <label class="field field-stacked"><span class="field-label">Notes</span><textarea class="field-input" id="e-notes" rows="1" placeholder="Add a note" maxlength="500" autocapitalize="sentences"></textarea></label>
       </div>
       <button class="btn btn-plain extras-toggle" type="button" id="e-extras-toggle" aria-expanded="false" aria-controls="e-extras">Add tolls or parking</button>
       <div class="list extras-list" id="e-extras" hidden>
@@ -348,14 +354,14 @@ export function mount(root, ctx) {
     return vehicles.map((v) => `<option value="${escapeHtml(v.id)}"${v.id === st.vehicleId ? ' selected' : ''}>${escapeHtml(v.name)}</option>`).join('');
   }
 
-  function chipHtml(s) {
+  function chipHtml(s, label) {
     const dist = fmtDistance(s.distanceMi, store.units());
-    const text = s.from && s.to ? `${escapeHtml(s.from)} → ${escapeHtml(s.to)}` : (s.from ? `From ${escapeHtml(s.from)}` : `To ${escapeHtml(s.to)}`);
+    const text = escapeHtml(label);
     const spoken = s.from && s.to ? `${s.from} to ${s.to}` : (s.from ? `From ${s.from}` : `To ${s.to}`);
     // Finishing a trip, the odometer has measured the distance, so a chip shows only where it goes.
     const meta = isFinish ? '' : `<span class="chip-meta">${escapeHtml(dist)}</span>`;
-    const label = isFinish ? spoken : `${spoken}, ${dist}`;
-    return `<button class="chip" type="button" data-key="${escapeHtml(s.key)}" aria-pressed="false" aria-label="${escapeHtml(label)}">${icon(s.kind === 'route' ? 'route' : 'clock', { size: 16 })}<span class="chip-label">${text}</span>${meta}</button>`;
+    const aria = isFinish ? spoken : `${spoken}, ${dist}`;
+    return `<button class="chip" type="button" data-key="${escapeHtml(s.key)}" aria-pressed="false" aria-label="${escapeHtml(aria)}">${icon(s.kind === 'route' ? 'route' : 'clock', { size: 16 })}<span class="chip-label">${text}</span>${meta}</button>`;
   }
 
   // ------------------------------------------------------------ derived values
@@ -390,13 +396,28 @@ export function mount(root, ctx) {
     }
     const odo = st.mode === 'odometer';
     el.grow.hidden = odo;
-    el.derived.hidden = !odo;
+    el.derived.hidden = !odo || isFinish;     // finishing, the hero is the end reading itself
+    if (el.growEnd) el.growEnd.hidden = !odo;
+    if (el.result) el.result.hidden = !odo;
     el.roundRow.hidden = odo;
     el.odo.hidden = !odo;
     el.mode.textContent = odo ? 'Enter distance instead' : 'Use odometer';
     el.hero.classList.toggle('is-derived', odo);
 
-    if (odo) {
+    if (odo && isFinish) {
+      // The result line under the end reading: when it started, then the distance, or what is wrong.
+      const d = odoDelta();
+      const ok = d != null && d > 0;
+      const whole = (st.odoEnd.split('.')[0] || '').length;
+      const ready = st.odoTouched || whole >= String(Math.floor(parseDecimal(st.odoStart))).length;
+      const bad = d != null && d <= 0 && ready;
+      el.result.classList.toggle('is-empty', !ok && !bad);
+      el.result.classList.toggle('is-error', bad);
+      el.result.textContent = bad ? 'Lower than the start reading'
+        : ok ? `${fmtDistance(store.fromDisplay(d), units)} driven`
+        : `Started ${fmtWhen(st.date, st.time)}`;
+      el.odoNote.hidden = true;
+    } else if (odo) {
       const d = odoDelta();
       const ok = d != null && d > 0;
       el.derived.textContent = ok ? fmtInput(d) : '0';
@@ -435,11 +456,11 @@ export function mount(root, ctx) {
     const totalMi = store.fromDisplay(totalDisplay());
     const valid = totalMi > 0;
     el.save.disabled = !valid;
-    el.save.textContent = valid ? summaryLabel(totalMi, units) : 'Save trip';
+    el.save.textContent = valid ? summaryLabel(totalMi, units) : (isFinish && odo ? 'Enter end reading' : 'Save trip');
   }
 
   function summaryLabel(totalMi, units) {
-    let s = `Save trip · ${fmtDistance(totalMi, units)}`;
+    let s = `${isFinish ? 'Finish trip' : 'Save trip'} · ${fmtDistance(totalMi, units)}`;
     if (st.purpose !== 'personal') {
       const worth = store.tripValue({ date: st.date, purpose: st.purpose, distanceMi: totalMi }) + extrasTotal();
       s += ` · ${fmtMoney(worth)}`;
@@ -448,6 +469,17 @@ export function mount(root, ctx) {
   }
 
   function setGrow() { el.grow.dataset.value = el.distance.value || '0'; }
+  function setGrowEnd() { if (el.growEnd) el.growEnd.dataset.value = el.odoEnd.value || el.odoEnd.placeholder || '0'; }
+
+  /** Show a canonical reading grouped in its field, caret at the end (readings are typed left to right). */
+  function showReading(node, canon) {
+    const shown = groupReading(canon);
+    if (node.value !== shown) {
+      node.value = shown;
+      if (document.activeElement === node) node.setSelectionRange(shown.length, shown.length);
+    }
+    if (node === el.odoEnd) setGrowEnd();
+  }
 
   function growNotes() {
     if (disposed) return;
@@ -475,7 +507,7 @@ export function mount(root, ctx) {
     const last = store.lastOdometer(st.vehicleId);
     st.odoStart = last != null ? fmtInput(last) : '';
     st.odoStartAuto = last != null;
-    el.odoStart.value = st.odoStart;
+    el.odoStart.value = groupReading(st.odoStart);
   }
 
   function setMode(mode, { persist = true, focus = true } = {}) {
@@ -553,7 +585,8 @@ export function mount(root, ctx) {
     }
     suggestions = new Map(list.map((s) => [s.key, s]));
     el.quick.hidden = list.length === 0;
-    el.chipRow.innerHTML = list.map(chipHtml).join('');
+    const labels = routeLabels(list, 18);
+    el.chipRow.innerHTML = list.map((x, i) => chipHtml(x, labels[i])).join('');
     el.chips = [...el.chipRow.querySelectorAll('.chip')];
     syncChips();
   }
@@ -626,7 +659,7 @@ export function mount(root, ctx) {
     store.setSettings({ defaultPurpose: st.purpose, defaultVehicleId: st.vehicleId });
     app.haptic();
     ctx.close();
-    app.toast('Trip saved');
+    app.toast(isFinish ? 'Trip finished' : 'Trip saved');
   }
 
   async function discard() {

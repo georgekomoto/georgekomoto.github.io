@@ -42,8 +42,9 @@ export const app = {
   /** Open a trip sheet. id: 'start' (begin a trip from the odometer), 'finish' (complete the trip in
       progress), 'new' (log a trip already driven) or a trip id (edit). prefill: partial trip for 'new'.
       replace: swap the current sheet in place, so closing it returns to the tab, not the previous sheet. */
-  openTrip(id = 'new', prefill = null, { replace = false } = {}) {
+  openTrip(id = 'new', prefill = null, { replace = false, keyboard = false } = {}) {
     pendingPrefill = prefill;
+    if (keyboard) primeKeyboard();
     if (replace) { history.replaceState({ fromApp: true }, '', `#/trip/${id}`); route(); }
     else location.hash = `#/trip/${id}`;
   },
@@ -127,7 +128,7 @@ function renderTabBar() {
     <a class="action-pill" href="#/trip/start" id="trip-action"></a>`;
   tabBarWrap.querySelector('#trip-action').addEventListener('click', (e) => {
     e.preventDefault();
-    app.openTrip(store.openTrip() ? 'finish' : 'start');
+    app.openTrip(store.openTrip() ? 'finish' : 'start', null, { keyboard: true });
   });
   updateTripAction();
   tabBarWrap.querySelectorAll('.tab').forEach((a) => a.addEventListener('click', (e) => {
@@ -232,6 +233,7 @@ async function openSheet(name, params, query) {
     view.innerHTML = `<div class="sheet-header"><button class="nav-btn" id="sheet-err-close">Close</button><div class="sheet-title">Error</div><span></span></div><div class="sheet-content"><div class="card"><p class="muted">${escapeHtml(err.message)}</p></div></div>`;
     view.querySelector('#sheet-err-close').addEventListener('click', () => app.closeSheet());
   }
+  handOffKeyboard(view);
   // Lock the page behind the sheet without losing its scroll position: the tab root becomes a
   // fixed-height, overflow-hidden box, so mirror window.scrollY into its own scrollTop.
   lockedScrollY = window.scrollY;
@@ -252,6 +254,32 @@ async function openSheet(name, params, query) {
 }
 
 function onSheetKey(e) { if (e.key === 'Escape') app.closeSheet(); }
+
+// iOS raises the keyboard only for a focus() made inside the tap itself, and the sheet's reading input
+// does not exist yet at that moment. So the tap focuses a hidden stand-in (same decimal keypad), and once
+// the sheet is mounted, focus moves to the element marked data-autofocus while the keyboard stays up.
+let keyboardPrimed = false;
+function primeKeyboard() {
+  if (!matchMedia('(pointer: coarse)').matches) return;
+  const proxy = document.createElement('input');
+  proxy.type = 'text';
+  proxy.id = 'kb-proxy';
+  proxy.className = 'kb-proxy';
+  proxy.tabIndex = -1;
+  proxy.setAttribute('inputmode', 'decimal');
+  proxy.setAttribute('aria-hidden', 'true');
+  document.getElementById('kb-proxy')?.remove();
+  document.body.appendChild(proxy);
+  proxy.focus({ preventScroll: true });
+  keyboardPrimed = true;
+}
+function handOffKeyboard(scope) {
+  if (!keyboardPrimed) return;
+  keyboardPrimed = false;
+  const target = scope.querySelector('[data-autofocus]');
+  if (target) target.focus({ preventScroll: true });
+  document.getElementById('kb-proxy')?.remove();
+}
 
 function setBackdropInert(on) {
   for (const node of [tabRoot, tabBarWrap, topBar]) {

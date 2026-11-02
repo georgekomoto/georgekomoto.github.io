@@ -184,6 +184,55 @@ export function fmtTimeRange(start, end) {
   return ap === bp ? `${at}\u2013${bt} ${bp}` : `${a}\u2013${b}`;
 }
 
+// ---- odometer readings: typed with the locale's decimal mark, shown with its grouping ----
+const NUM_PARTS = new Intl.NumberFormat(undefined).formatToParts(1234567.8);
+const DECIMAL = (NUM_PARTS.find((p) => p.type === 'decimal') || { value: '.' }).value;
+const GROUP = (NUM_PARTS.find((p) => p.type === 'group') || { value: '' }).value;
+
+/** A typed reading -> canonical '48222.4': grouping removed, the decimal mark normalized to '.', at most
+    seven whole digits and one decimal. A trailing mark is kept while typing ('48222.'). */
+export function canonReading(raw) {
+  let s = String(raw == null ? '' : raw);
+  if (GROUP) s = s.split(GROUP).join('');
+  s = s.replace(/[\s\u00a0\u202f]/g, '');
+  const mark = DECIMAL === ',' ? ',' : '.';
+  const i = s.indexOf(mark);
+  const whole = (i < 0 ? s : s.slice(0, i)).replace(/\D/g, '').slice(0, 7).replace(/^0+(?=\d)/, '');
+  if (i < 0) return whole;
+  return `${whole || '0'}.${s.slice(i + 1).replace(/\D/g, '').slice(0, 1)}`;
+}
+
+/** Canonical '48222.4' -> '48,222.4' in the locale's marks; '48222.' -> '48,222.' while typing. */
+export function groupReading(canon) {
+  const s = String(canon == null ? '' : canon);
+  if (!s) return '';
+  const [w, f] = s.split('.');
+  const whole = Number(w || 0).toLocaleString(undefined, { maximumFractionDigits: 0 });
+  return f === undefined ? whole : `${whole}${DECIMAL}${f}`;
+}
+
+/** Short labels for a set of routes: drop ' · qualifier' and ', city' suffixes when every label stays
+    distinct, then cut each side at a word boundary. */
+export function routeLabels(routes, max = 14) {
+  const SEP = /\s[·•|–—-]\s|,\s/;
+  const head = (x) => { const h = String(x || '').split(SEP)[0].trim(); return h || String(x || '').trim(); };
+  const cut = (x) => {
+    x = String(x || '').trim();
+    if (x.length <= max) return x;
+    let acc = '';
+    for (const w of x.split(/\s+/)) { const next = acc ? `${acc} ${w}` : w; if (next.length > max - 1) break; acc = next; }
+    if (!acc) acc = x.slice(0, max - 1);
+    return `${acc.replace(/[\s·•,|–—-]+$/, '')}…`;
+  };
+  const brief = routes.map((r) => `${head(r.from)}|${head(r.to)}`);
+  const distinct = new Set(brief).size === brief.length;
+  return routes.map((r) => {
+    const parts = distinct ? [head(r.from), head(r.to)] : [r.from, r.to];
+    const shown = parts.filter((x) => String(x || '').trim());
+    return shown.length === 2 ? shown.map(cut).join(' → ') : (r.from ? `From ${cut(r.from)}` : `To ${cut(r.to)}`);
+  });
+}
+
 export function csvEscape(v) {
   const s = String(v ?? '');
   return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;

@@ -48,6 +48,16 @@ table.sr-only, .sr-only table { display: block; width: 1px; }
 
 [hidden] { display: none !important; }
 
+.kb-proxy {
+  position: fixed;
+  top: 0; left: 0;
+  width: 1px; height: 1px;
+  padding: 0; border: 0;
+  opacity: 0;
+  font-size: 16px;
+  pointer-events: none;
+}
+
 /* In-card heading (uppercase footnote, like .section-title without its outer spacing) */
 .card-title {
   font-size: var(--fs-footnote);
@@ -258,7 +268,8 @@ body.sheet-open .tab-root {
   background: currentColor;
   animation: live-pulse 2s ease-in-out infinite;
 }
-@keyframes live-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+@keyframes live-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+.live-dot.is-live { animation: live-pulse 2s ease-in-out infinite; box-shadow: 0 0 0 3px var(--accent-soft); }
 .action-pill:active { transform: scale(0.96); background: var(--accent-hover); }
 
 /* ---------- Cards and grouped lists ---------- */
@@ -472,13 +483,9 @@ button.row[disabled], a.row[aria-disabled="true"] { opacity: 0.45; pointer-event
   transition: background var(--dur-fast) linear, box-shadow var(--dur-fast) linear;
 }
 .seg input:checked + span {
-  background: var(--bg-elevated);
+  background: var(--seg-thumb);
   box-shadow: var(--shadow-thumb);
   font-weight: 600;
-}
-:root[data-theme="dark"] .seg input:checked + span { background: var(--bg-elevated-2); }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .seg input:checked + span { background: var(--bg-elevated-2); }
 }
 .seg input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: -2px; }
 .segmented.lg .seg span { padding: 10px 8px; font-size: var(--fs-subhead); line-height: var(--lh-subhead); }
@@ -532,7 +539,7 @@ button.row[disabled], a.row[aria-disabled="true"] { opacity: 0.45; pointer-event
 .field-input.left { text-align: left; }
 .field-input[type="date"] { text-align: right; }
 .field-input[type="date"]::-webkit-date-and-time-value { text-align: right; }
-select.field-input { padding-right: 24px; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%237A7A80' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right center; }
+select.field-input { padding-right: 22px; color: var(--label-2); background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238E8E93' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 9.5l5-5 5 5M7 14.5l5 5 5-5'/%3E%3C/svg%3E") no-repeat right center; }
 .field-stacked { flex-direction: column; align-items: stretch; gap: 4px; padding: 10px 16px; }
 .field-stacked .field-label { font-size: var(--fs-footnote); color: var(--label-2); }
 .field-stacked .field-input { text-align: left; }
@@ -566,6 +573,9 @@ textarea.field-input { resize: none; line-height: var(--lh-body); }
 }
 
 .sheet {
+  --bg: var(--sheet-bg);
+  --bg-elevated: var(--sheet-cell);
+  --glass-bg: var(--sheet-glass, var(--glass-bg));
   position: absolute;
   left: 0; right: 0; bottom: var(--kb-inset, 0px);
   top: calc(var(--safe-top) + 12px);

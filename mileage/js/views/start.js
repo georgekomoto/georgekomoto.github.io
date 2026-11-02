@@ -2,7 +2,7 @@
 // The first half of a trip: the odometer reading, date, time and vehicle when you set off. Saving it
 // creates a trip in progress, which the finish sheet (#/trip/finish) completes when you arrive.
 
-import { escapeHtml, fmtDate, fmtNum, fmtTime, fmtWhen, nowTime, todayISO } from '../format.js';
+import { escapeHtml, fmtDate, fmtTime, fmtWhen, nowTime, todayISO, canonReading, groupReading } from '../format.js';
 
 export function mount(root, ctx) {
   const { store, app } = ctx;
@@ -12,7 +12,8 @@ export function mount(root, ctx) {
   const units = store.units();
   const vehicles = store.vehicles();
   const st = {
-    odo: '',
+    odo: '',             // canonical reading ('48222.4'); the input shows it grouped ('48,222.4')
+    odoDone: false,      // left the field at least once, so a short reading is finished, not half-typed
     date: todayISO(),
     time: nowTime(),
     vehicleId: (store.defaultVehicle() || {}).id || null,
@@ -24,7 +25,7 @@ export function mount(root, ctx) {
   const $ = (sel) => root.querySelector(sel);
   const el = {
     form: $('.entry'), cancel: $('#s-cancel'), hero: $('.hero'), grow: $('.hero-grow'), odo: $('#s-odo'),
-    lastText: $('#s-last-text'), useLast: $('#s-use-last'), warn: $('#s-warn'),
+    lastText: $('#s-last-text'), useLast: $('#s-use-last'),
     date: $('#s-date'), dateDisplay: $('#s-date-display'), time: $('#s-time'), timeDisplay: $('#s-time-display'),
     vehicle: $('#s-vehicle'), past: $('#s-past'), error: $('#s-error'), save: $('#s-save'),
   };
@@ -45,13 +46,15 @@ export function mount(root, ctx) {
   el.hero.addEventListener('click', (e) => { if (e.target !== el.odo) el.odo.focus(); });
 
   el.odo.addEventListener('input', () => {
-    const clean = sanitizeReading(el.odo.value);
-    if (clean !== el.odo.value) el.odo.value = clean;
-    st.odo = clean; setGrow(); clearError(); update();
+    st.odo = canonReading(el.odo.value);
+    st.odoDone = false;     // typing again: judge it once it is long enough or left
+    showReading();
+    clearError(); update();
   });
   el.odo.addEventListener('blur', () => {
-    const t = el.odo.value.replace(/[.,]$/, '');
-    if (t !== el.odo.value) { el.odo.value = t; st.odo = t; setGrow(); update(); }
+    st.odo = st.odo.replace(/\.$/, '');
+    st.odoDone = st.odo !== '';
+    showReading(); update();
   });
   el.odo.addEventListener('keydown', (e) => {
     if (e.key !== 'Enter') return;
@@ -62,9 +65,9 @@ export function mount(root, ctx) {
   el.useLast.addEventListener('click', () => {
     const last = lastReading().value;
     if (last == null) return;
-    st.odo = String(last);
-    el.odo.value = st.odo;
-    setGrow(); clearError(); update();
+    st.odo = String(Math.round(last * 10) / 10);   // already canonical: '.' decimal, one place
+    st.odoDone = true;
+    showReading(); clearError(); update();
     app.haptic();
   });
 
@@ -102,15 +105,14 @@ export function mount(root, ctx) {
         <p class="hero-label" id="s-odo-label">Odometer reading</p>
         <div class="hero">
           <span class="hero-grow" data-value="0">
-            <input class="hero-num" id="s-odo" type="text" inputmode="decimal" placeholder="0" size="1" maxlength="9" autocomplete="off" enterkeyhint="done" aria-labelledby="s-odo-label" aria-describedby="s-last-text s-warn">
+            <input class="hero-num" id="s-odo" type="text" inputmode="decimal" placeholder="0" size="1" maxlength="11" autocomplete="off" enterkeyhint="done" aria-labelledby="s-odo-label" aria-describedby="s-last-text" data-autofocus>
           </span>
           <span class="hero-unit" aria-hidden="true">${units}</span>
         </div>
         <div class="start-last">
-          <span class="hint" id="s-last-text"></span>
+          <span class="hint" id="s-last-text" aria-live="polite"></span>
           <button class="btn btn-sm btn-secondary" type="button" id="s-use-last" hidden></button>
         </div>
-        <p class="warn-text start-warn" id="s-warn" hidden></p>
       </div>
       <div class="list details-list">
         <label class="field date-field"><span class="field-label">Date</span>
@@ -151,21 +153,25 @@ export function mount(root, ctx) {
     if (disposed) return;
     const last = lastReading();
     const typed = parseReading(st.odo);
+    // Lower than the last reading is almost always a typo, but a new car or a corrected log can make it
+    // legitimate, so it warns without blocking. It waits until the reading is as long as the last one,
+    // or the field is left, so typing 4 → 48 → 485 never flashes a warning.
+    const whole = st.odo.split('.')[0].length;
+    const ready = st.odoDone || (last.value != null && whole >= String(Math.floor(last.value)).length);
+    const low = typed != null && last.value != null && ready && typed < last.value;
     if (last.value != null) {
-      const reading = `${fmtNum(last.value, { max: 1 })} ${units}`;
-      el.lastText.textContent = last.date ? `Last recorded ${reading} on ${fmtDate(last.date)}` : `Last recorded ${reading}`;
-      el.useLast.textContent = `Use ${fmtNum(last.value, { max: 1 })}`;
-      el.useLast.setAttribute('aria-label', `Use the last reading, ${reading}`);
+      const shown = groupReading(String(last.value));
+      el.lastText.textContent = low
+        ? 'Lower than the last reading'
+        : (last.date ? `Last recorded ${shown} ${units} on ${fmtDate(last.date)}` : `Last recorded ${shown} ${units}`);
+      el.useLast.textContent = `Use ${shown}`;
+      el.useLast.setAttribute('aria-label', `Use the last reading, ${shown} ${units}`);
       el.useLast.hidden = typed === last.value;
     } else {
       el.lastText.textContent = 'Read it from your dashboard.';
       el.useLast.hidden = true;
     }
-    // Lower than the last reading is almost always a typo, but a new car or a corrected log can
-    // make it legitimate, so warn without blocking.
-    const low = st.odo !== '' && last.value != null && typed < last.value;
-    el.warn.hidden = !low;
-    el.warn.textContent = low ? `That’s lower than the last reading of ${fmtNum(last.value, { max: 1 })} ${units}.` : '';
+    el.lastText.classList.toggle('is-warning', low);
 
     el.dateDisplay.textContent = st.date ? fmtDate(st.date, { weekday: true, year: true }) : 'Pick a date';
     el.date.setAttribute('aria-label', `Date${st.date ? `, ${fmtDate(st.date, { weekday: true, year: true })}` : ''}`);
@@ -176,6 +182,16 @@ export function mount(root, ctx) {
   }
 
   function setGrow() { el.grow.dataset.value = el.odo.value || '0'; }
+
+  /** Show the canonical reading grouped, with the caret at the end (readings are typed left to right). */
+  function showReading() {
+    const shown = groupReading(st.odo);
+    if (el.odo.value !== shown) {
+      el.odo.value = shown;
+      if (document.activeElement === el.odo) el.odo.setSelectionRange(shown.length, shown.length);
+    }
+    setGrow();
+  }
   function clearError() { if (el.error.textContent) el.error.textContent = ''; }
 
   function save() {
@@ -220,14 +236,6 @@ function mountInProgress(root, ctx, open) {
 }
 
 // ------------------------------------------------------------ helpers
-
-/** Digits and one decimal separator, up to seven whole digits and one decimal: how odometers read. */
-function sanitizeReading(raw) {
-  const s = String(raw == null ? '' : raw).replace(/[^\d.,]/g, '');
-  const m = s.match(/^(\d*)([.,])?(.*)$/);
-  const int = m[1].slice(0, 7);
-  return m[2] ? `${int}${m[2]}${m[3].replace(/\D/g, '').slice(0, 1)}` : int;
-}
 
 function parseReading(s) {
   const n = parseFloat(String(s == null ? '' : s).replace(',', '.'));

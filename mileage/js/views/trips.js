@@ -1,7 +1,7 @@
 // Trips — the home tab. The trip in progress (if any), the month summary card, quick-log chips for
 // saved routes, and the month's trips grouped by day. Re-renders on store changes.
 
-import { escapeHtml, fmtDistance, fmtMoney, fmtNum, fmtTime, fmtTimeRange, fmtWhen, fmtElapsed, minutesSince, fmtDayHeading, fmtMonthYear, addMonths, todayISO } from '../format.js';
+import { escapeHtml, fmtDistance, fmtMoney, fmtNum, fmtTime, fmtTimeRange, fmtWhen, routeLabels, fmtElapsed, minutesSince, fmtDayHeading, fmtMonthYear, addMonths, todayISO } from '../format.js';
 import { purposeLabel } from '../store.js';
 
 // Deductible purposes first; personal is the non-deductible remainder.
@@ -62,22 +62,6 @@ export function mount(root, ctx) {
     return { html: escapeHtml(s), text: s };
   }
 
-  /** Chip labels: drop " · qualifier" / ", city" suffixes when every chip stays distinct, then cut each side at a word boundary. */
-  function chipLabels(routes) {
-    const SEP = /\s[·•|–—-]\s|,\s/;
-    const head = (s) => { const h = String(s || '').split(SEP)[0].trim(); return h || String(s || '').trim(); };
-    const cut = (s, max = 14) => {
-      s = String(s || '').trim();
-      if (s.length <= max) return s;
-      let acc = '';
-      for (const w of s.split(/\s+/)) { const next = acc ? `${acc} ${w}` : w; if (next.length > max - 1) break; acc = next; }
-      if (!acc) acc = s.slice(0, max - 1);
-      return `${acc.replace(/[\s·•,|–—-]+$/, '')}…`;
-    };
-    const brief = routes.map((r) => `${head(r.from)} → ${head(r.to)}`);
-    const pick = new Set(brief).size === brief.length ? (r) => [head(r.from), head(r.to)] : (r) => [r.from, r.to];
-    return routes.map((r) => pick(r).map((x) => cut(x)).join(' → '));
-  }
 
   // ---------------------------------------------------------------- templates
 
@@ -112,7 +96,7 @@ export function mount(root, ctx) {
   function quickLogHtml(units) {
     const routes = store.suggestions(4).routes;
     if (!routes.length) return '';
-    const labels = chipLabels(routes);
+    const labels = routeLabels(routes);
     return `
       <h2 class="day-heading quick-log-heading" id="quick-log-title"><span class="day-label">Quick log</span></h2>
       <div class="chip-row" role="group" aria-labelledby="quick-log-title">${routes.map((r, i) => {
@@ -179,8 +163,7 @@ export function mount(root, ctx) {
       <div class="empty-state">
         <div class="empty-icon" aria-hidden="true">${icon('route', { size: 44 })}</div>
         <h2 class="title3">No trips yet</h2>
-        <p>Start a trip when you set off by noting the odometer. Finish it with the new reading when you arrive, and the distance is worked out for you.</p>
-        <button class="btn btn-secondary" type="button" data-act="start">Start your first trip</button>
+        <p>Note the odometer when you leave and when you arrive. Mileage works out the distance.</p>
       </div>`;
   }
 
@@ -201,7 +184,7 @@ export function mount(root, ctx) {
     aria.push('Finish trip');
     return `
       <section class="live" aria-labelledby="live-title">
-        <h2 class="day-heading live-heading" id="live-title"><span class="day-label"><span class="live-dot" aria-hidden="true"></span>In progress</span></h2>
+        <h2 class="day-heading live-heading" id="live-title"><span class="day-label"><span class="live-dot is-live" aria-hidden="true"></span>In progress</span></h2>
         <div class="list">
           <button class="row live-row" type="button" data-act="finish" aria-label="${escapeHtml(aria.join(', '))}">
             <div class="row-main">
@@ -318,7 +301,7 @@ export function mount(root, ctx) {
       }
       case 'new': app.openTrip('new'); break;
       case 'start': app.openTrip('start'); break;
-      case 'finish': app.openTrip('finish'); break;
+      case 'finish': app.openTrip('finish', null, { keyboard: true }); break;
       case 'filter': {
         const p = btn.dataset.purpose;
         filter = filter === p ? null : p;
