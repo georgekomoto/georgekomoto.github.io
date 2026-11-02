@@ -6,6 +6,7 @@ import { icon } from './icons.js';
 import { escapeHtml } from './format.js';
 import * as tripsView from './views/trips.js';
 import * as entryView from './views/entry.js';
+import * as startView from './views/start.js';
 import * as summaryView from './views/summary.js';
 import * as settingsView from './views/settings.js';
 
@@ -38,10 +39,13 @@ export const app = {
     if (replace) history.replaceState(null, '', hash); else location.hash = hash;
     if (replace) route();
   },
-  /** Open the trip sheet. id: 'new' | tripId. prefill: partial trip for 'new' (e.g. a repeated route). */
-  openTrip(id = 'new', prefill = null) {
+  /** Open a trip sheet. id: 'start' (begin a trip from the odometer), 'finish' (complete the trip in
+      progress), 'new' (log a trip already driven) or a trip id (edit). prefill: partial trip for 'new'.
+      replace: swap the current sheet in place, so closing it returns to the tab, not the previous sheet. */
+  openTrip(id = 'new', prefill = null, { replace = false } = {}) {
     pendingPrefill = prefill;
-    location.hash = `#/trip/${id}`;
+    if (replace) { history.replaceState({ fromApp: true }, '', `#/trip/${id}`); route(); }
+    else location.hash = `#/trip/${id}`;
   },
   takePrefill() { const p = pendingPrefill; pendingPrefill = null; return p; },
   closeSheet() {
@@ -120,12 +124,31 @@ function renderTabBar() {
           <span class="tab-label">${t.label}</span>
         </a>`).join('')}
     </div>
-    <a class="action-pill" href="#/trip/new" id="log-trip-btn" aria-label="Log a trip">${icon('plusBold', { size: 22 })}<span>Log trip</span></a>`;
-  tabBarWrap.querySelector('#log-trip-btn').addEventListener('click', (e) => { e.preventDefault(); app.openTrip('new'); });
+    <a class="action-pill" href="#/trip/start" id="trip-action"></a>`;
+  tabBarWrap.querySelector('#trip-action').addEventListener('click', (e) => {
+    e.preventDefault();
+    app.openTrip(store.openTrip() ? 'finish' : 'start');
+  });
+  updateTripAction();
   tabBarWrap.querySelectorAll('.tab').forEach((a) => a.addEventListener('click', (e) => {
     // Re-tapping the active tab scrolls to top (iOS convention)
     if (a.dataset.tab === current.tabId && !sheet.name) { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
   }));
+}
+
+/** The main action follows the trip: Start trip, or Finish trip while one is in progress. */
+function updateTripAction() {
+  const pill = tabBarWrap.querySelector('#trip-action');
+  if (!pill) return;
+  const live = !!store.openTrip();
+  if (pill.dataset.live === String(live)) return;
+  pill.dataset.live = String(live);
+  pill.classList.toggle('is-live', live);
+  pill.setAttribute('href', live ? '#/trip/finish' : '#/trip/start');
+  pill.setAttribute('aria-label', live ? 'Finish the trip in progress' : 'Start a trip');
+  pill.innerHTML = live
+    ? '<span class="live-dot" aria-hidden="true"></span><span>Finish trip</span>'
+    : `${icon('plusBold', { size: 22 })}<span>Start trip</span>`;
 }
 
 function updateTabBar() {
@@ -201,7 +224,8 @@ async function openSheet(name, params, query) {
   const ctx = makeCtx(params, query);
   ctx.close = () => app.closeSheet();
   try {
-    const cleanup = await entryView.mount(view, ctx);
+    const viewModule = params.id === 'start' ? startView : entryView;
+    const cleanup = await viewModule.mount(view, ctx);
     sheet.cleanup = () => { ctx._dispose(); if (typeof cleanup === 'function') cleanup(); };
   } catch (err) {
     console.error(err);
@@ -260,10 +284,10 @@ function closeSheet(immediate = false) {
 
 async function route() {
   const { path, query, parts } = parseHash();
-  // Sheet routes: #/trip/new, #/trip/:id
+  // Sheet routes: #/trip/start, #/trip/finish, #/trip/new, #/trip/:id
   if (parts[0] === 'trip' && parts[1]) {
     if (!current.tabId) await mountTab(TABS[0], {}, {});
-    await openSheet('entry', { id: parts[1] }, query);
+    await openSheet('trip', { id: parts[1] }, query);
     return;
   }
   lastNonSheetHash = location.hash || '#/trips';
@@ -335,6 +359,7 @@ function applyThemeColor() {
 }
 
 store.subscribe((_, change) => { if (change.type === 'settings' || change.type === 'replace' || change.type === 'clear') applyTheme(); });
+store.subscribe(() => updateTripAction());
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
 
 window.addEventListener('hashchange', () => {

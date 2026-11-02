@@ -1,10 +1,10 @@
 // Mileage service worker: precache the shell, serve cached-first, refresh in the background.
-const CACHE = 'mileage-v2.0.0';
+const CACHE = 'mileage-v2.1.0';
 const SHELL = [
   './', './index.html', './manifest.webmanifest',
   './css/tokens.css', './css/base.css', './css/trips.css', './css/entry.css', './css/summary.css', './css/settings.css',
   './js/app.js', './js/store.js', './js/format.js', './js/icons.js',
-  './js/views/trips.js', './js/views/entry.js', './js/views/summary.js', './js/views/settings.js',
+  './js/views/trips.js', './js/views/start.js', './js/views/entry.js', './js/views/summary.js', './js/views/settings.js',
   './icons/icon.svg', './icons/icon-180.png', './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable.png',
 ];
 

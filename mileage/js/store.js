@@ -1,7 +1,7 @@
 // Mileage — data store. Single JSON document in localStorage, canonical distances in miles.
 // Views read through the API below and re-render on `subscribe`.
 
-import { uid, todayISO, yearOf, monthKey, toDisplayDistance, fromDisplayDistance, isValidISODate, csvEscape, fmtDistance, KM_PER_MI } from './format.js';
+import { uid, todayISO, nowTime, yearOf, monthKey, toDisplayDistance, fromDisplayDistance, isValidISODate, csvEscape, fmtDistance, KM_PER_MI } from './format.js';
 
 export const STORAGE_KEY = 'mileage.v2';
 export const SCHEMA_VERSION = 2;
@@ -51,6 +51,9 @@ function defaultState() {
     vehicles: [],
     routes: [],
     trips: [],
+    // A trip that has been started but not finished: only its start reading, date, time and vehicle
+    // are known. It lives apart from `trips` so it never reaches totals, exports or suggestions.
+    openTrips: [],
   };
 }
 
@@ -83,8 +86,25 @@ function normalize(s) {
   out.vehicles = Array.isArray(s.vehicles) ? s.vehicles : [];
   out.routes = Array.isArray(s.routes) ? s.routes : [];
   out.trips = Array.isArray(s.trips) ? s.trips : [];
+  out.openTrips = (Array.isArray(s.openTrips) ? s.openTrips : []).map(sanitizeOpen).filter(Boolean).slice(0, 1);
   out.version = SCHEMA_VERSION;
   return out;
+}
+
+/** Shape-check a stored trip in progress; anything malformed is dropped rather than trusted. */
+function sanitizeOpen(o) {
+  if (!o || typeof o !== 'object' || typeof o.id !== 'string') return null;
+  const date = String(o.date || '').slice(0, 10);
+  const odoStart = Number(o.odoStart);
+  if (!isValidISODate(date) || !Number.isFinite(odoStart) || odoStart < 0) return null;
+  return {
+    id: o.id,
+    date,
+    time: normalizeTime(o.time),
+    odoStart,
+    vehicleId: typeof o.vehicleId === 'string' ? o.vehicleId : null,
+    createdAt: typeof o.createdAt === 'string' ? o.createdAt : new Date().toISOString(),
+  };
 }
 
 function normalizeRates(raw) {
@@ -293,6 +313,59 @@ export const store = {
     return v && v.odometer != null ? v.odometer : null;
   },
 
+  // ---- trip in progress: started with an odometer reading, finished later
+  /** The trip in progress, or null. There is at most one: a driver is only in one car at a time. */
+  openTrip() { return load().openTrips[0] || null; },
+  /** Start a trip from an odometer reading. Throws a user-facing Error on bad input. */
+  startTrip(input) {
+    const s = load();
+    if (s.openTrips.length) throw new Error('Finish the trip in progress first.');
+    const o = cleanOpen(input, this);
+    o.id = uid();
+    o.createdAt = new Date().toISOString();
+    s.openTrips.push(o);
+    commit({ type: 'open', op: 'start', id: o.id });
+    return o;
+  },
+  updateOpenTrip(id, patch) {
+    const s = load();
+    const idx = s.openTrips.findIndex((o) => o.id === id);
+    if (idx < 0) throw new Error('That trip is no longer in progress.');
+    const next = { ...cleanOpen({ ...s.openTrips[idx], ...patch }, this), id, createdAt: s.openTrips[idx].createdAt };
+    s.openTrips[idx] = next;
+    commit({ type: 'open', op: 'update', id });
+    return next;
+  },
+  discardOpenTrip(id) {
+    const s = load();
+    const idx = s.openTrips.findIndex((o) => o.id === id);
+    if (idx < 0) return null;
+    const [removed] = s.openTrips.splice(idx, 1);
+    commit({ type: 'open', op: 'discard', id });
+    return removed;
+  },
+  restoreOpenTrip(o) {
+    const s = load();
+    if (!o || s.openTrips.length) return;
+    s.openTrips.push(o);
+    commit({ type: 'open', op: 'start', id: o.id });
+  },
+  /** Turn the trip in progress into a finished trip. Validates everything before changing anything. */
+  finishTrip(id, input) {
+    const s = load();
+    const idx = s.openTrips.findIndex((o) => o.id === id);
+    if (idx < 0) throw new Error('That trip is no longer in progress.');
+    const open = s.openTrips[idx];
+    const t = cleanTrip({ date: open.date, time: open.time, vehicleId: open.vehicleId, odoStart: open.odoStart, ...input }, this);
+    t.id = uid();
+    t.createdAt = new Date().toISOString();
+    s.openTrips.splice(idx, 1);
+    s.trips.push(t);
+    this._afterTripWrite(t);
+    commit({ type: 'trips', id: t.id, op: 'add' });
+    return t;
+  },
+
   // ---- trips
   trips() { return load().trips.slice().sort(byDateDesc); },
   trip(id) { return load().trips.find((t) => t.id === id) || null; },
@@ -467,9 +540,9 @@ export const store = {
   // ---- export / import
   csv(trips) {
     const units = this.units();
-    const head = ['Date', 'Time', 'From', 'To', 'Purpose', 'Purpose detail', `Distance (${units})`, `Rate (cents per ${units === 'km' ? 'km' : 'mile'})`, 'Mileage value (USD)', 'Tolls (USD)', 'Parking (USD)', 'Deductible total (USD)', 'Vehicle', 'Round trip', 'Odometer start', 'Odometer end', 'Notes'];
+    const head = ['Date', 'Start time', 'End time', 'From', 'To', 'Purpose', 'Purpose detail', `Distance (${units})`, `Rate (cents per ${units === 'km' ? 'km' : 'mile'})`, 'Mileage value (USD)', 'Tolls (USD)', 'Parking (USD)', 'Deductible total (USD)', 'Vehicle', 'Round trip', 'Odometer start', 'Odometer end', 'Notes'];
     const rows = trips.slice().sort(byDateAsc).map((t) => [
-      t.date, t.time || '', t.from, t.to, purposeLabel(t.purpose), t.detail || '',
+      t.date, t.time || '', t.endTime || '', t.from, t.to, purposeLabel(t.purpose), t.detail || '',
       fmtDistance(t.distanceMi, units, { unit: false, max: 1 }).replace(/,/g, ''),
       this.rateFor(t.date, t.purpose), this.tripValue(t).toFixed(2),
       t.tolls != null ? t.tolls.toFixed(2) : '', t.parking != null ? t.parking.toFixed(2) : '',
@@ -604,6 +677,21 @@ function classifyPurpose(text) {
   return 'business';
 }
 
+/** Coerce and validate the start of a trip: an odometer reading, date, time and vehicle. */
+function cleanOpen(input, api) {
+  const date = String(input.date || todayISO()).slice(0, 10);
+  if (!isValidISODate(date)) throw new Error('Pick a valid date.');
+  const odoStart = num(input.odoStart);
+  if (odoStart == null || odoStart < 0) throw new Error('Enter the odometer reading.');
+  if (odoStart > 9999999) throw new Error('That odometer reading looks too large.');
+  return {
+    date,
+    time: normalizeTime(input.time) || nowTime(),
+    odoStart: round(odoStart, 1),
+    vehicleId: input.vehicleId || api.defaultVehicle()?.id || null,
+  };
+}
+
 /** Coerce and validate a trip object. distance may be given as `distanceMi` (miles) or `distance` (display units). */
 function cleanTrip(input, api) {
   const t = { ...input };
@@ -619,15 +707,16 @@ function cleanTrip(input, api) {
   t.notes = String(t.notes || '').trim().slice(0, 500);
   t.detail = String(t.detail || '').trim().slice(0, 60);
   t.time = normalizeTime(t.time);
+  t.endTime = normalizeTime(t.endTime);
   t.tolls = money(t.tolls);
   t.parking = money(t.parking);
   t.routeId = t.routeId || null;
+  if (t.odoStart != null && t.odoEnd != null && t.odoEnd <= t.odoStart) throw new Error('End odometer must be higher than start.');
   let mi = num(t.distanceMi);
   if (mi == null && t.distance != null) mi = api.fromDisplay(num(t.distance));
   if (mi == null && t.odoStart != null && t.odoEnd != null) mi = api.fromDisplay(t.odoEnd - t.odoStart);
   if (mi == null || !(mi > 0)) throw new Error('Enter a distance greater than zero.');
   if (mi > 20000) throw new Error('That distance looks too large for one trip.');
-  if (t.odoStart != null && t.odoEnd != null && t.odoEnd < t.odoStart) throw new Error('End odometer must be higher than start.');
   t.distanceMi = round(mi, 3);
   delete t.distance;
   return t;

@@ -1,7 +1,7 @@
-// Trips — the home tab. Month summary card, quick-log chips for saved routes,
-// and the month's trips grouped by day. Re-renders on store changes.
+// Trips — the home tab. The trip in progress (if any), the month summary card, quick-log chips for
+// saved routes, and the month's trips grouped by day. Re-renders on store changes.
 
-import { escapeHtml, fmtDistance, fmtMoney, fmtTime, fmtDayHeading, fmtMonthYear, addMonths, todayISO } from '../format.js';
+import { escapeHtml, fmtDistance, fmtMoney, fmtNum, fmtTime, fmtTimeRange, fmtWhen, fmtElapsed, minutesSince, fmtDayHeading, fmtMonthYear, addMonths, todayISO } from '../format.js';
 import { purposeLabel } from '../store.js';
 
 // Deductible purposes first; personal is the non-deductible remainder.
@@ -128,7 +128,7 @@ export function mount(root, ctx) {
     const extras = store.tripExtras(t);
     const title = tripTitle(t);
     const sub = [];
-    if (t.time) sub.push(fmtTime(t.time));
+    if (t.time || t.endTime) sub.push(fmtTimeRange(t.time, t.endTime));
     sub.push(t.detail || purposeLabel(t.purpose));
     if (vehicle && vehicle.id !== defaultVehicleId) sub.push(vehicle.name);
     if (t.roundTrip) sub.push('Round trip');
@@ -179,9 +179,39 @@ export function mount(root, ctx) {
       <div class="empty-state">
         <div class="empty-icon" aria-hidden="true">${icon('route', { size: 44 })}</div>
         <h2 class="title3">No trips yet</h2>
-        <p>Log a trip in a few taps. Save the routes you drive often and they\u2019ll be one tap away next time.</p>
-        <button class="btn btn-secondary" type="button" data-act="new">Log your first trip</button>
+        <p>Start a trip when you set off by noting the odometer. Finish it with the new reading when you arrive, and the distance is worked out for you.</p>
+        <button class="btn btn-secondary" type="button" data-act="start">Start your first trip</button>
       </div>`;
+  }
+
+  /** Elapsed text for the trip in progress, refreshed by the ticker below without a re-render. */
+  function elapsedOf(open) { return fmtElapsed(minutesSince(open.date, open.time)); }
+
+  /** The trip in progress: a temporary listing that stays at the top until it is finished. */
+  function liveHtml(open, units) {
+    const vehicle = open.vehicleId ? store.vehicle(open.vehicleId) : null;
+    const defaultId = (store.defaultVehicle() || {}).id || null;
+    const started = `Started ${fmtWhen(open.date, open.time)}`;
+    const reading = `${fmtNum(open.odoStart, { max: 1 })} ${units} at the start`;
+    const elapsed = elapsedOf(open);
+    const sub = [reading];
+    if (vehicle && vehicle.id !== defaultId) sub.push(vehicle.name);
+    const aria = ['Trip in progress', started, reading];
+    if (vehicle) aria.push(vehicle.name);
+    aria.push('Finish trip');
+    return `
+      <section class="live" aria-labelledby="live-title">
+        <h2 class="day-heading live-heading" id="live-title"><span class="day-label"><span class="live-dot" aria-hidden="true"></span>In progress</span></h2>
+        <div class="list">
+          <button class="row live-row" type="button" data-act="finish" aria-label="${escapeHtml(aria.join(', '))}">
+            <div class="row-main">
+              <div class="row-title">${escapeHtml(started)}</div>
+              <div class="row-sub">${escapeHtml(sub.join(' \u00b7 '))}<span class="live-elapsed" data-elapsed>${elapsed ? escapeHtml(` \u00b7 ${elapsed}`) : ''}</span></div>
+            </div>
+            <span class="live-cta" aria-hidden="true">Finish${icon('chevronRight', { size: 18 })}</span>
+          </button>
+        </div>
+      </section>`;
   }
 
   // ---------------------------------------------------------------- render
@@ -211,15 +241,18 @@ export function mount(root, ctx) {
     const scrollY = window.scrollY;
     const focusKey = focusKeyOf(document.activeElement);
 
+    const open = store.openTrip();
     let html = '<div class="page trips-page"><div class="page-header"><h1 class="large-title">Trips</h1></div>';
+    if (open) html += liveHtml(open, units);
     if (!all.length) {
-      html += emptyStateHtml();
+      html += open ? '<p class="live-note">Finished trips appear here, grouped by day.</p>' : emptyStateHtml();
     } else {
       const trips = store.tripsForMonth(selected.year, selected.month);
       if (filter && !trips.some((t) => t.purpose === filter)) filter = null;
       const shown = filter ? trips.filter((t) => t.purpose === filter) : trips;
       html += monthCardHtml(trips, units, b);
-      html += filter ? '' : quickLogHtml(units);
+      // While a trip is running, the next step is finishing it, not logging another.
+      html += filter || open ? '' : quickLogHtml(units);
       html += trips.length
         ? (shown.length ? listHtml(shown, units) : `<div class="card month-empty"><p class="muted">No ${escapeHtml(purposeLabel(filter).toLowerCase())} trips this month.</p><button class="btn btn-plain" type="button" data-act="filter" data-purpose="${escapeHtml(filter)}">Show all trips</button></div>`)
         : monthEmptyHtml();
@@ -284,6 +317,8 @@ export function mount(root, ctx) {
         break;
       }
       case 'new': app.openTrip('new'); break;
+      case 'start': app.openTrip('start'); break;
+      case 'finish': app.openTrip('finish'); break;
       case 'filter': {
         const p = btn.dataset.purpose;
         filter = filter === p ? null : p;
@@ -298,6 +333,17 @@ export function mount(root, ctx) {
   }
   const onTouch = () => {}; // lets iOS Safari apply :active to rows
 
+  function tick() {
+    const open = store.openTrip();
+    const node = root.querySelector('[data-elapsed]');
+    if (!open || !node) return;
+    const elapsed = elapsedOf(open);
+    node.textContent = elapsed ? ` \u00b7 ${elapsed}` : '';
+  }
+  const ticker = setInterval(tick, 30000);
+  const onVisible = () => { if (document.visibilityState === 'visible') tick(); };
+  document.addEventListener('visibilitychange', onVisible);
+
   root.addEventListener('click', onClick);
   root.addEventListener('touchstart', onTouch, { passive: true });
   ctx.onChange((_, change) => {
@@ -309,6 +355,8 @@ export function mount(root, ctx) {
 
   return () => {
     alive = false;
+    clearInterval(ticker);
+    document.removeEventListener('visibilitychange', onVisible);
     root.removeEventListener('click', onClick);
     root.removeEventListener('touchstart', onTouch);
   };

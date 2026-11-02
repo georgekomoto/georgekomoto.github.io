@@ -61,6 +61,7 @@
   --accent-hover: #096646;
   --accent-soft: rgba(11, 122, 85, 0.12);
   --accent-soft-2: rgba(11, 122, 85, 0.18);
+  --accent-ink: #0A714F;          /* accent text on the accent tint: 4.6:1 on the page, 5.1:1 on a card */
   --on-accent: #FFFFFF;
   --danger: #C8102E;           /* 6.0:1 on white */
   --danger-soft: rgba(200, 16, 46, 0.10);
@@ -109,6 +110,7 @@
     --accent-hover: #34BC88;
     --accent-soft: rgba(61, 202, 148, 0.16);
     --accent-soft-2: rgba(61, 202, 148, 0.26);
+    --accent-ink: #3DCA94;
     --on-accent: #03231A;      /* 7.6:1 on accent, APCA 61 */
     --danger: #FF9790;         /* 8.2:1 on #1C1C1E, APCA 60 */
     --danger-soft: rgba(255, 151, 144, 0.16);
@@ -154,6 +156,7 @@
   --accent-hover: #34BC88;
   --accent-soft: rgba(61, 202, 148, 0.16);
   --accent-soft-2: rgba(61, 202, 148, 0.26);
+  --accent-ink: #3DCA94;
   --on-accent: #03231A;
   --danger: #FF9790;
   --danger-soft: rgba(255, 151, 144, 0.16);

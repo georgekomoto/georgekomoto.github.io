@@ -3,9 +3,20 @@ import { toISODate } from './format.js';
 
 function daysAgo(n) { const d = new Date(); d.setDate(d.getDate() - n); return toISODate(d); }
 
+function minutesAgo(n) {
+  const d = new Date(Date.now() - n * 60000);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
 export function seed(store, name = 'demo') {
   if (name === 'empty') {
     store.replaceState({ settings: { onboarded: true, migratedLegacy: true } });
+    return;
+  }
+  if (name === 'empty-open') {
+    store.replaceState({ settings: { onboarded: true, migratedLegacy: true } });
+    const civic = store.addVehicle({ name: 'Honda Civic', plate: '8ABC123', odometer: 48210, isDefault: true });
+    store.startTrip({ odoStart: 48210, date: toISODate(new Date()), time: minutesAgo(18), vehicleId: civic.id });
     return;
   }
   const base = { version: 2, settings: { units: 'mi', defaultPurpose: 'business', theme: 'system', onboarded: true, migratedLegacy: true }, vehicles: [], routes: [], trips: [] };
@@ -116,4 +127,15 @@ export function seed(store, name = 'demo') {
       routeId: key ? src.id : null,
     });
   });
+
+  if (name === 'open' || name === 'finished') {
+    // This morning's commute, logged with the start and finish sheets.
+    const odo = store.lastOdometer(civic.id) ?? 48210;
+    const o = store.startTrip({ odoStart: odo, date: daysAgo(0), time: '07:52', vehicleId: civic.id });
+    store.finishTrip(o.id, { odoEnd: odo + 12.4, endTime: '08:19', from: 'Home', to: 'Office · Redwood City', purpose: 'business', detail: 'Between offices', routeId: R.office.id });
+  }
+  if (name === 'open') {
+    // A trip under way: set off from the last recorded reading a little over half an hour ago.
+    store.startTrip({ odoStart: store.lastOdometer(civic.id), date: daysAgo(0), time: minutesAgo(34), vehicleId: civic.id });
+  }
 }

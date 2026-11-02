@@ -135,6 +135,37 @@ export function fmtRelativeShort(s) {
   return fmtDate(s);
 }
 
+/** Current local time as 'HH:MM'. */
+export function nowTime(d = new Date()) { return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`; }
+
+/** 'today at 8:05 AM' | 'yesterday at 8:05 AM' | 'Monday, Sep 15 at 8:05 AM' */
+export function fmtWhen(dateISO, hhmm) {
+  const day = fmtDayHeading(dateISO);
+  const relative = ['Today', 'Yesterday', 'Tomorrow'].includes(day);
+  const dayPart = relative ? day.toLowerCase() : day;
+  const t = fmtTime(hhmm);
+  return t ? `${dayPart} at ${t}` : dayPart;
+}
+
+/** Whole minutes since a local date and time, or null when unknown or in the future. */
+export function minutesSince(dateISO, hhmm, now = new Date()) {
+  const d = parseISO(dateISO);
+  if (!d) return null;
+  const m = String(hhmm || '').match(/^(\d{1,2}):(\d{2})/);
+  if (m) d.setHours(Number(m[1]), Number(m[2]), 0, 0);
+  const mins = Math.floor((now - d) / 60000);
+  return mins >= 0 ? mins : null;
+}
+
+/** 0 -> 'just now', 12 -> '12 min', 65 -> '1 hr 5 min'. Blank past 12 hours, where the day says more. */
+export function fmtElapsed(mins) {
+  if (mins == null || mins >= 720) return '';
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins} min ago`;
+  const h = Math.floor(mins / 60), m = mins % 60;
+  return m ? `${h} hr ${m} min ago` : `${h} hr ago`;
+}
+
 /** 'HH:MM' -> '8:05 AM'. Returns '' for a blank or unparseable value. */
 export function fmtTime(hhmm) {
   const m = String(hhmm || '').match(/^(\d{1,2}):(\d{2})/);
@@ -143,6 +174,14 @@ export function fmtTime(hhmm) {
   const suffix = h < 12 ? 'AM' : 'PM';
   const h12 = h % 12 === 0 ? 12 : h % 12;
   return `${h12}:${m[2]} ${suffix}`;
+}
+
+/** '07:50'+'08:24' -> '7:50–8:24 AM'; across noon -> '11:40 AM–12:10 PM'; one side only -> that time. */
+export function fmtTimeRange(start, end) {
+  const a = fmtTime(start), b = fmtTime(end);
+  if (!a || !b) return a || b;
+  const [at, ap] = a.split(' '), [bt, bp] = b.split(' ');
+  return ap === bp ? `${at}\u2013${bt} ${bp}` : `${a}\u2013${b}`;
 }
 
 export function csvEscape(v) {

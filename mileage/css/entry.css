@@ -53,8 +53,8 @@
 }
 .entry .hero-grow > input {
   position: absolute;
-  inset: 0;
-  width: 100%;
+  inset: 0 -12px;
+  width: calc(100% + 24px);
 }
 
 .entry .hero-num,
@@ -107,7 +107,7 @@
 .entry .round-row .hint { margin-top: 1px; }
 .entry .round-row .field-label { display: block; }
 
-.entry .odo .field-input { max-width: 150px; }
+.entry .odo .field-input { max-width: 150px; margin-left: auto; }
 .entry .odo-note {
   margin: 0;
   padding: 0 16px 10px;
@@ -293,3 +293,47 @@
   .entry .money-field .field-input { field-sizing: content; width: auto; min-width: 2.5ch; max-width: 130px; }
 }
 .entry .extras-note { padding-bottom: 12px; }
+
+/* ---------- Start sheet, and the finish sheet's start line ---------- */
+.entry .hero-label,
+.entry .hero-caption {
+  margin: 0;
+  padding: 16px 16px 0;
+  text-align: center;
+  font-size: var(--fs-footnote);
+  line-height: var(--lh-footnote);
+  color: var(--label-2);
+}
+.entry .hero-label + .hero,
+.entry .hero-caption + .hero { min-height: 0; padding-top: 2px; padding-bottom: 10px; }
+
+.entry .start-last {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  padding: 0 16px 16px;
+  text-align: center;
+}
+.entry .start-last .btn-sm { min-height: 44px; }
+.entry .warn-text {
+  margin: -6px 0 0;
+  padding: 0 16px 16px;
+  text-align: center;
+  font-size: var(--fs-footnote);
+  line-height: var(--lh-footnote);
+  color: var(--warning);
+}
+.entry .past-trip-link {
+  display: flex;
+  width: 100%;
+  min-height: 44px;
+  margin-top: 8px;
+  justify-content: center;
+  font-size: var(--fs-subhead);
+  font-weight: 500;
+}
+/* Finishing a trip, the route picks sit between the reading and the route fields. */
+.entry[data-mode="finish"] .quick { margin: 16px 0 0; }
+.entry .empty-symbol { color: var(--label-3); }

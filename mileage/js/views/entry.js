@@ -1,8 +1,9 @@
-// Mileage — trip entry sheet. Routes: #/trip/new and #/trip/<id>.
+// Mileage — trip entry sheet. Routes: #/trip/finish, #/trip/new and #/trip/<id>.
+// finish: complete the trip in progress (its start reading, date and time come from the start sheet).
+// new: log a trip already driven. <id>: edit a saved trip.
 // Renders once, then patches the live nodes (summary, hints, visibility) as the user types.
-// Goal: a repeat trip is two taps (chip, Save); a new trip needs one number.
 
-import { escapeHtml, fmtDistance, fmtMoney, fmtCents, fmtDate, fmtTime, todayISO, isValidISODate } from '../format.js';
+import { escapeHtml, fmtDistance, fmtMoney, fmtCents, fmtDate, fmtTime, fmtWhen, nowTime, todayISO, isValidISODate } from '../format.js';
 import { PURPOSES, PURPOSE_IDS, purposeLabel } from '../store.js';
 
 const MAX_PLACES = 60;
@@ -11,11 +12,15 @@ export function mount(root, ctx) {
   const { store, app, icon } = ctx;
   const rawId = (ctx.params && ctx.params.id) || 'new';
   const isNew = rawId === 'new';
-  const trip = isNew ? null : store.trip(rawId);
-  if (!isNew && !trip) return mountMissing(root, ctx);
+  const isFinish = rawId === 'finish';
+  const creating = isNew || isFinish;       // shows quick picks and the save-route switch
+  const openTrip = isFinish ? store.openTrip() : null;
+  if (isFinish && !openTrip) return mountMissing(root, ctx, { finish: true });
+  const trip = creating ? null : store.trip(rawId);
+  if (!creating && !trip) return mountMissing(root, ctx);
 
   const prefill = isNew ? (app.takePrefill() || null) : null;
-  const src = trip || prefill || {};
+  const src = trip || prefill || (openTrip ? { date: openTrip.date, time: openTrip.time, vehicleId: openTrip.vehicleId } : {});
   const settings = store.settings();
   let vehicles = store.vehicles();
   const defaultVehicle = store.defaultVehicle();
@@ -40,6 +45,7 @@ export function mount(root, ctx) {
     notes: str(src.notes),
     detail: str(src.detail),
     time: str(src.time),
+    endTime: str(src.endTime),
     tolls: src.tolls != null ? fmtInput(src.tolls) : '',
     parking: src.parking != null ? fmtInput(src.parking) : '',
     saveRoute: true,
@@ -52,6 +58,12 @@ export function mount(root, ctx) {
     st.odoEnd = fmtInput(src.odoEnd);
   } else if (isNew && settings.entryMode === 'odometer' && !(Number(src.distanceMi) > 0)) {
     st.mode = 'odometer';
+  }
+  if (isFinish) {
+    // The start reading was taken when the trip began; the end reading is what's asked for now.
+    st.mode = 'odometer';
+    st.odoStart = fmtInput(openTrip.odoStart);
+    st.endTime = nowTime();
   }
   if (Number(src.distanceMi) > 0) st.distance = fmtInput(store.toDisplay(src.distanceMi) / (st.roundTrip ? 2 : 1));
   if (st.mode === 'odometer' && !st.odoStart) {
@@ -69,9 +81,9 @@ export function mount(root, ctx) {
     roundRow: $('#e-round-row'), round: $('#e-round'), roundHint: $('#e-round-hint'),
     odo: $('#e-odo'), odoStart: $('#e-odo-start'), odoEnd: $('#e-odo-end'), odoNote: $('#e-odo-note'), mode: $('#e-mode'),
     from: $('#e-from'), to: $('#e-to'), swap: $('#e-swap'), places: $('#e-places'),
-    rate: $('#e-rate'), detailRow: $('#e-detail-row'), detailChips: $('#e-detail-chips'), detailCustom: $('#e-detail-custom'), detailInput: $('#e-detail-input'), detailAdd: $('#e-detail-add'), date: $('#e-date'), dateDisplay: $('#e-date-display'), time: $('#e-time'), timeDisplay: $('#e-time-display'), extrasToggle: $('#e-extras-toggle'), extras: $('#e-extras'), tolls: $('#e-tolls'), parking: $('#e-parking'), vehicle: $('#e-vehicle'), notes: $('#e-notes'),
+    rate: $('#e-rate'), detailRow: $('#e-detail-row'), detailChips: $('#e-detail-chips'), detailCustom: $('#e-detail-custom'), detailInput: $('#e-detail-input'), detailAdd: $('#e-detail-add'), date: $('#e-date'), dateDisplay: $('#e-date-display'), time: $('#e-time'), timeDisplay: $('#e-time-display'), endTime: $('#e-end-time'), endTimeDisplay: $('#e-end-time-display'), extrasToggle: $('#e-extras-toggle'), extras: $('#e-extras'), tolls: $('#e-tolls'), parking: $('#e-parking'), vehicle: $('#e-vehicle'), notes: $('#e-notes'),
     saveRouteRow: $('#e-save-route'), saveRouteSwitch: $('#e-save-route-switch'),
-    del: $('#e-delete'), error: $('#e-error'), save: $('#e-save'),
+    del: $('#e-delete'), discard: $('#e-discard'), error: $('#e-error'), save: $('#e-save'),
   };
 
   el.distance.value = st.distance; setGrow();
@@ -102,6 +114,7 @@ export function mount(root, ctx) {
   el.cancel.addEventListener('click', () => ctx.close());
   el.save.addEventListener('click', save);
   if (el.del) el.del.addEventListener('click', remove);
+  if (el.discard) el.discard.addEventListener('click', discard);
   el.form.addEventListener('submit', (e) => { e.preventDefault(); if (!el.save.disabled) save(); });
 
   el.hero.addEventListener('click', (e) => { if (e.target !== el.distance) primaryInput().focus(); });
@@ -163,6 +176,9 @@ export function mount(root, ctx) {
   const onTime = () => { st.time = el.time.value; update(); };
   el.time.addEventListener('input', onTime);
   el.time.addEventListener('change', onTime);
+  const onEndTime = () => { st.endTime = el.endTime.value; update(); };
+  el.endTime.addEventListener('input', onEndTime);
+  el.endTime.addEventListener('change', onEndTime);
 
   el.extrasToggle.addEventListener('click', () => setExtrasOpen(el.extras.hidden));
   for (const [node, key] of [[el.tolls, 'tolls'], [el.parking, 'parking']]) {
@@ -200,7 +216,9 @@ export function mount(root, ctx) {
     if (disposed || saving) return;
     const type = change && change.type;
     if (['vehicles', 'replace', 'import', 'clear'].includes(type)) refreshVehicles();
-    if (isNew && ['trips', 'routes', 'replace', 'import', 'clear'].includes(type)) { renderChips(); renderPlaces(); }
+    if (creating && ['trips', 'routes', 'replace', 'import', 'clear'].includes(type)) { renderChips(); renderPlaces(); }
+    // The trip in progress was finished or discarded somewhere else: nothing left to finish here.
+    if (isFinish && !store.openTrip()) { ctx.close(); return; }
     update();
   });
 
@@ -216,18 +234,16 @@ export function mount(root, ctx) {
           <select class="field-input" id="e-vehicle">${vehicleOptions()}</select>
         </label>` : '';
     return `
-  <form class="entry" data-mode="${isNew ? 'new' : 'edit'}" novalidate autocomplete="off">
+  <form class="entry" data-mode="${isFinish ? 'finish' : isNew ? 'new' : 'edit'}" novalidate autocomplete="off">
     <div class="sheet-header">
       <button class="nav-btn" type="button" id="e-cancel">Cancel</button>
-      <h2 class="sheet-title" id="sheet-title">${isNew ? 'Log trip' : 'Edit trip'}</h2>
+      <h2 class="sheet-title" id="sheet-title">${isFinish ? 'Finish trip' : isNew ? 'Log trip' : 'Edit trip'}</h2>
       <span></span>
     </div>
     <div class="sheet-content">
-      ${isNew ? `<section class="quick" hidden>
-        <h3 class="quick-heading" id="e-quick-title">Quick picks</h3>
-        <div class="chip-row" role="group" aria-labelledby="e-quick-title"></div>
-      </section>` : ''}
+      ${isNew ? quickHtml() : ''}
       <div class="card hero-card">
+        ${isFinish ? `<p class="hero-caption" id="e-started">${escapeHtml(`Started ${fmtWhen(openTrip.date, openTrip.time)}`)}</p>` : ''}
         <div class="hero">
           <span class="hero-grow" data-value="0">
             <input class="hero-num" id="e-distance" type="text" inputmode="decimal" pattern="[0-9]*[.,]?[0-9]*" placeholder="0" size="1" maxlength="9" autocomplete="off" enterkeyhint="done" aria-label="Distance in ${unitWord}">
@@ -249,6 +265,7 @@ export function mount(root, ctx) {
         </div>
         <button class="mode-toggle" type="button" id="e-mode">Use odometer</button>
       </div>
+      ${isFinish ? quickHtml() : ''}
       <div class="list route-list">
         <div class="route-fields">
           <label class="field field-stacked"><span class="field-label">From</span><input class="field-input" id="e-from" type="text" list="e-places" placeholder="Optional" autocomplete="off" autocapitalize="words" enterkeyhint="next" maxlength="120"></label>
@@ -277,10 +294,16 @@ export function mount(root, ctx) {
             <input class="field-input num" id="e-date" type="date" value="${st.date}" required>
           </span>
         </label>
-        <label class="field"><span class="field-label">Time</span>
+        <label class="field"><span class="field-label">Start time</span>
           <span class="time-control">
             <span class="time-display" id="e-time-display" aria-hidden="true"></span>
             <input class="field-input num" id="e-time" type="time" value="${escapeHtml(st.time)}">
+          </span>
+        </label>
+        <label class="field"><span class="field-label">End time</span>
+          <span class="time-control">
+            <span class="time-display" id="e-end-time-display" aria-hidden="true"></span>
+            <input class="field-input num" id="e-end-time" type="time" value="${escapeHtml(st.endTime)}">
           </span>
         </label>
         ${vehicleRow}
@@ -296,18 +319,29 @@ export function mount(root, ctx) {
         </label>
         <p class="section-footer extras-note">Tolls and parking are deductible on top of the mileage rate.</p>
       </div>
-      ${isNew ? `<div class="list save-route" id="e-save-route" hidden>
+      ${creating ? `<div class="list save-route" id="e-save-route" hidden>
         <div class="field">
           <span class="field-label" id="e-save-route-label">Save as a route for quick entry</span>
           <label class="switch"><input type="checkbox" role="switch" id="e-save-route-switch" aria-labelledby="e-save-route-label" checked><span class="switch-track"></span></label>
         </div>
-      </div>` : `<button class="btn btn-destructive btn-block delete-btn" type="button" id="e-delete">Delete trip</button>`}
+      </div>` : ''}
+      ${isFinish ? '<button class="btn btn-destructive btn-block delete-btn" type="button" id="e-discard">Discard trip</button>' : ''}
+      ${creating ? '' : '<button class="btn btn-destructive btn-block delete-btn" type="button" id="e-delete">Delete trip</button>'}
     </div>
     <div class="sheet-footer">
       <div class="error-text" id="e-error" role="alert"></div>
       <button class="btn btn-primary btn-block" type="button" id="e-save" disabled>Save trip</button>
     </div>
   </form>`;
+  }
+
+  /** Saved routes and recent trips. Logging a past trip, they lead; finishing one, the odometer
+      leads and they follow, filling only where you went. */
+  function quickHtml() {
+    return `<section class="quick" hidden>
+        <h3 class="quick-heading" id="e-quick-title">${isFinish ? 'Where did you go?' : 'Quick picks'}</h3>
+        <div class="chip-row" role="group" aria-labelledby="e-quick-title"></div>
+      </section>`;
   }
 
   function vehicleOptions() {
@@ -318,7 +352,10 @@ export function mount(root, ctx) {
     const dist = fmtDistance(s.distanceMi, store.units());
     const text = s.from && s.to ? `${escapeHtml(s.from)} → ${escapeHtml(s.to)}` : (s.from ? `From ${escapeHtml(s.from)}` : `To ${escapeHtml(s.to)}`);
     const spoken = s.from && s.to ? `${s.from} to ${s.to}` : (s.from ? `From ${s.from}` : `To ${s.to}`);
-    return `<button class="chip" type="button" data-key="${escapeHtml(s.key)}" aria-pressed="false" aria-label="${escapeHtml(`${spoken}, ${dist}`)}">${icon(s.kind === 'route' ? 'route' : 'clock', { size: 16 })}<span class="chip-label">${text}</span><span class="chip-meta">${escapeHtml(dist)}</span></button>`;
+    // Finishing a trip, the odometer has measured the distance, so a chip shows only where it goes.
+    const meta = isFinish ? '' : `<span class="chip-meta">${escapeHtml(dist)}</span>`;
+    const label = isFinish ? spoken : `${spoken}, ${dist}`;
+    return `<button class="chip" type="button" data-key="${escapeHtml(s.key)}" aria-pressed="false" aria-label="${escapeHtml(label)}">${icon(s.kind === 'route' ? 'route' : 'clock', { size: 16 })}<span class="chip-label">${text}</span>${meta}</button>`;
   }
 
   // ------------------------------------------------------------ derived values
@@ -380,7 +417,10 @@ export function mount(root, ctx) {
     el.dateDisplay.textContent = st.date ? fmtDate(st.date, { weekday: true, year: true }) : 'Pick a date';
     el.timeDisplay.textContent = st.time ? fmtTime(st.time) : 'Optional';
     el.timeDisplay.classList.toggle('is-empty', !st.time);
-    el.time.setAttribute('aria-label', st.time ? `Time, ${fmtTime(st.time)}` : 'Time, optional');
+    el.time.setAttribute('aria-label', st.time ? `Start time, ${fmtTime(st.time)}` : 'Start time, optional');
+    el.endTimeDisplay.textContent = st.endTime ? fmtTime(st.endTime) : 'Optional';
+    el.endTimeDisplay.classList.toggle('is-empty', !st.endTime);
+    el.endTime.setAttribute('aria-label', st.endTime ? `End time, ${fmtTime(st.endTime)}` : 'End time, optional');
     el.date.setAttribute('aria-label', `Date${st.date ? `, ${fmtDate(st.date, { weekday: true, year: true })}` : ''}`);
 
     const rate = store.rateFor(st.date || todayISO(), st.purpose);
@@ -448,7 +488,7 @@ export function mount(root, ctx) {
       if (d != null && d > 0) { st.distance = fmtInput(d / (st.roundTrip ? 2 : 1)); el.distance.value = st.distance; setGrow(); }
     }
     st.mode = mode;
-    if (persist) store.setSettings({ entryMode: mode });
+    if (persist && !isFinish) store.setSettings({ entryMode: mode });
     clearError();
     update();
     if (focus) primaryInput().focus();
@@ -537,11 +577,14 @@ export function mount(root, ctx) {
     st.detail = s.detail && store.detailsFor(st.purpose).includes(s.detail) ? s.detail : '';
     renderDetails();
     if (s.vehicleId && el.vehicle && vehicles.some((v) => v.id === s.vehicleId)) { st.vehicleId = s.vehicleId; el.vehicle.value = s.vehicleId; }
-    if (s.roundTrip != null) { st.roundTrip = s.roundTrip; el.round.checked = s.roundTrip; }
-    const oneWay = store.toDisplay(s.distanceMi) / (s.kind === 'recent' && s.roundTrip ? 2 : 1);
-    st.distance = fmtInput(oneWay);
-    el.distance.value = st.distance; setGrow();
-    if (st.mode === 'odometer') setMode('distance', { persist: false, focus: false });
+    // Finishing a trip: the odometer measured the distance, so a pick fills only route and purpose.
+    if (!isFinish) {
+      if (s.roundTrip != null) { st.roundTrip = s.roundTrip; el.round.checked = s.roundTrip; }
+      const oneWay = store.toDisplay(s.distanceMi) / (s.kind === 'recent' && s.roundTrip ? 2 : 1);
+      st.distance = fmtInput(oneWay);
+      el.distance.value = st.distance; setGrow();
+      if (st.mode === 'odometer') setMode('distance', { persist: false, focus: false });
+    }
     clearError();
     app.haptic();
     update();
@@ -560,18 +603,20 @@ export function mount(root, ctx) {
     let createdRoute = null;
     saving = true;
     try {
-      if (isNew && st.saveRoute && from && to && !routeId) {
+      if (creating && st.saveRoute && from && to && !routeId) {
         createdRoute = store.saveRoute({ from, to, distanceMi: round3(totalMi / (st.roundTrip ? 2 : 1)), purpose: st.purpose, detail: st.detail });
         routeId = createdRoute.id;
       }
       const data = {
         date: st.date, from, to, distanceMi: totalMi, purpose: st.purpose, vehicleId: st.vehicleId, roundTrip: st.roundTrip,
         odoStart: odo ? parseDecimal(st.odoStart) : null, odoEnd: odo ? parseDecimal(st.odoEnd) : null,
-        notes: st.notes, detail: st.detail, time: st.time,
+        notes: st.notes, detail: st.detail, time: st.time, endTime: st.endTime,
         tolls: st.tolls === '' ? null : parseDecimal(st.tolls), parking: st.parking === '' ? null : parseDecimal(st.parking),
         routeId,
       };
-      if (isNew) store.addTrip(data); else store.updateTrip(rawId, data);
+      if (isFinish) store.finishTrip(openTrip.id, data);
+      else if (isNew) store.addTrip(data);
+      else store.updateTrip(rawId, data);
     } catch (err) {
       if (createdRoute) store.deleteRoute(createdRoute.id);
       saving = false;
@@ -582,6 +627,16 @@ export function mount(root, ctx) {
     app.haptic();
     ctx.close();
     app.toast('Trip saved');
+  }
+
+  async function discard() {
+    if (saving || disposed) return;
+    const ok = await app.confirm({ title: 'Discard this trip?', message: 'Its start reading won’t be kept. You can undo this for a few seconds.', confirmLabel: 'Discard', destructive: true });
+    if (!ok || disposed) return;
+    saving = true;
+    const removed = store.discardOpenTrip(openTrip.id);
+    ctx.close();
+    app.toast('Trip discarded', { actionLabel: 'Undo', onAction: () => store.restoreOpenTrip(removed) });
   }
 
   async function remove() {
@@ -597,19 +652,25 @@ export function mount(root, ctx) {
 
 // ------------------------------------------------------------ missing trip
 
-function mountMissing(root, ctx) {
+function mountMissing(root, ctx, { finish = false } = {}) {
   root.innerHTML = `
   <form class="entry" data-mode="missing" novalidate>
     <div class="sheet-header">
       <button class="nav-btn" type="button" id="e-cancel">Close</button>
-      <h2 class="sheet-title" id="sheet-title">Edit trip</h2>
+      <h2 class="sheet-title" id="sheet-title">${finish ? 'Finish trip' : 'Edit trip'}</h2>
       <span></span>
     </div>
     <div class="sheet-content">
-      <div class="empty-state">${ctx.icon('road', { size: 40, cls: 'muted' })}<h3 class="title3">Trip not found</h3><p>This trip is no longer in your log.</p></div>
+      <div class="empty-state">${ctx.icon('road', { size: 40, cls: 'muted' })}
+        <h3 class="title3">${finish ? 'No trip in progress' : 'Trip not found'}</h3>
+        <p>${finish ? 'Start a trip when you set off, then finish it here when you arrive.' : 'This trip is no longer in your log.'}</p>
+        ${finish ? '<button class="btn btn-secondary" type="button" id="e-start">Start a trip</button>' : ''}
+      </div>
     </div>
   </form>`;
   root.querySelector('#e-cancel').addEventListener('click', () => ctx.close());
+  const start = root.querySelector('#e-start');
+  if (start) start.addEventListener('click', () => ctx.app.openTrip('start', null, { replace: true }));
   return () => {};
 }
 
